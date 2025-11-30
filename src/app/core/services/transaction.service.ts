@@ -94,21 +94,27 @@ export class TransactionService {
             userId: user.uid,
             date: new Date(transaction.date).toISOString() // Store as ISO string for simplicity or Timestamp
         };
-        await addDoc(this.transactionsCollection, newTransaction);
+        const op = addDoc(this.transactionsCollection, newTransaction);
+        if (!navigator.onLine) return;
+        await op;
     }
 
     async updateTransaction(transaction: Transaction) {
         const docRef = doc(this.firestore, 'transactions', transaction.id);
         const { id, ...data } = transaction;
-        await updateDoc(docRef, {
+        const op = updateDoc(docRef, {
             ...data,
             date: new Date(data.date).toISOString()
         });
+        if (!navigator.onLine) return;
+        await op;
     }
 
     async deleteTransaction(id: string) {
         const docRef = doc(this.firestore, 'transactions', id);
-        await deleteDoc(docRef);
+        const op = deleteDoc(docRef);
+        if (!navigator.onLine) return;
+        await op;
     }
 
     // Date Navigation Helpers
