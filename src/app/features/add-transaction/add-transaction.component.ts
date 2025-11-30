@@ -24,6 +24,7 @@ export class AddTransactionComponent implements OnInit {
 
   isEdit = signal(false);
   isOwner = signal(true);
+  isSaving = signal(false);
   transactionId: string | null = null;
 
   form = this.fb.group({
@@ -60,26 +61,33 @@ export class AddTransactionComponent implements OnInit {
   }
 
   async onSubmit() {
-    if (this.form.valid && this.isOwner()) {
-      const val = this.form.value;
-      const transactionData = {
-        amount: val.amount!,
-        type: val.type as 'income' | 'expense',
-        categoryId: val.categoryId!,
-        date: new Date(val.date!),
-        note: val.note || '',
-        accountId: 'default' // Placeholder
-      };
+    if (this.form.valid && this.isOwner() && !this.isSaving()) {
+      this.isSaving.set(true);
+      try {
+        const val = this.form.value;
+        const transactionData = {
+          amount: val.amount!,
+          type: val.type as 'income' | 'expense',
+          categoryId: val.categoryId!,
+          date: new Date(val.date!),
+          note: val.note || '',
+          accountId: 'default' // Placeholder
+        };
 
-      if (this.isEdit() && this.transactionId) {
-        await this.transactionService.updateTransaction({
-          ...transactionData,
-          id: this.transactionId
-        });
-      } else {
-        await this.transactionService.addTransaction(transactionData);
+        if (this.isEdit() && this.transactionId) {
+          await this.transactionService.updateTransaction({
+            ...transactionData,
+            id: this.transactionId
+          });
+        } else {
+          await this.transactionService.addTransaction(transactionData);
+        }
+        this.router.navigate(['/dashboard']);
+      } catch (error) {
+        console.error('Error saving transaction:', error);
+        this.isSaving.set(false);
+        alert('Failed to save transaction. Please try again.');
       }
-      this.router.navigate(['/dashboard']);
     }
   }
 
