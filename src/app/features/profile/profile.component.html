@@ -1,0 +1,48 @@
+<div class="min-h-screen bg-gray-50 p-4">
+    <!-- Header -->
+    <header class="flex items-center gap-4 mb-8">
+        <button routerLink="/dashboard" class="p-2 -ml-2 rounded-full hover:bg-gray-200 transition-colors">
+            <span class="material-icons text-gray-600">arrow_back</span>
+        </button>
+        <h1 class="text-xl font-bold text-gray-800">Profile</h1>
+    </header>
+
+    <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 flex flex-col items-center text-center">
+        <!-- Avatar -->
+        <div
+            class="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4 overflow-hidden">
+            @if (user()?.photoURL) {
+            <img [src]="user()?.photoURL" alt="Profile" class="w-full h-full object-cover">
+            } @else {
+            <span class="material-icons text-4xl">person</span>
+            }
+        </div>
+
+        <!-- User Info -->
+        <h2 class="text-xl font-bold text-gray-800 mb-1">{{ user()?.displayName || 'User' }}</h2>
+        <p class="text-gray-500 text-sm mb-6">{{ user()?.email }}</p>
+
+        <!-- Logout Button -->
+        <button (click)="logout()"
+            class="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 font-medium py-3 px-4 rounded-xl hover:bg-red-100 transition-colors">
+            <span class="material-icons">logout</span>
+            Sign Out
+        </button>
+    </div>
+
+    <!-- Additional Options (Placeholder for future) -->
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <button routerLink="/categories"
+            class="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 text-left">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                    <span class="material-icons text-sm">category</span>
+                </div>
+                <span class="font-medium text-gray-700">Manage Categories</span>
+            </div>
+            <span class="material-icons text-gray-400">chevron_right</span>
+        </button>
+
+        <!-- Add more settings here if needed -->
+    </div>
+</div>
