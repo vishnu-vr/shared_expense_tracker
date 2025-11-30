@@ -25,5 +25,9 @@ export const routes: Routes = [
     {
         path: 'edit-transaction/:id',
         loadComponent: () => import('./features/add-transaction/add-transaction.component').then(m => m.AddTransactionComponent)
+    },
+    {
+        path: 'analysis',
+        loadComponent: () => import('./features/analysis/analysis.component').then(m => m.AnalysisComponent)
     }
 ];
