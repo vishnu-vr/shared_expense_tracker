@@ -1,4 +1,4 @@
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, isDevMode } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
@@ -6,6 +6,7 @@ import { provideFirestore, getFirestore, enableMultiTabIndexedDbPersistence } fr
 import { environment } from '../environments/environment';
 
 import { routes } from './app.routes';
+import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -13,9 +14,13 @@ export const appConfig: ApplicationConfig = {
     provideFirebaseApp(() => initializeApp(environment.firebase)),
     provideAuth(() => getAuth()),
     provideFirestore(() => {
-      const firestore = getFirestore();
-      enableMultiTabIndexedDbPersistence(firestore);
-      return firestore;
+        const firestore = getFirestore();
+        enableMultiTabIndexedDbPersistence(firestore);
+        return firestore;
+    }),
+    provideServiceWorker('ngsw-worker.js', {
+        enabled: !isDevMode(),
+        registrationStrategy: 'registerWhenStable:30000'
     })
-  ]
+]
 };
