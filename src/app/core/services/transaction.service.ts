@@ -2,8 +2,8 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { Firestore, collection, collectionData, addDoc, doc, deleteDoc, updateDoc, query, orderBy, where, onSnapshot } from '@angular/fire/firestore';
 import { AuthService } from './auth.service';
 import { Transaction } from '../models/models';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { map, switchMap, catchError } from 'rxjs/operators';
 
 @Injectable({
     providedIn: 'root'
@@ -49,26 +49,38 @@ export class TransactionService {
     }
 
     private loadTransactions() {
-        // Fetch ALL transactions ordered by date
-        const q = query(this.transactionsCollection, orderBy('date', 'desc'));
-
-        new Observable<Transaction[]>(observer => {
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const transactions = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        ...data,
-                        date: (data['date'] as any).toDate ? (data['date'] as any).toDate() : new Date(data['date'])
-                    } as Transaction;
-                });
-                observer.next(transactions);
-            }, (error) => {
-                console.error('Error loading transactions:', error);
-                observer.error(error);
-            });
-            return () => unsubscribe();
-        }).subscribe(transactions => {
+        this.authService.user$.pipe(
+            switchMap(user => {
+                if (user) {
+                    // Fetch ALL transactions ordered by date
+                    const q = query(this.transactionsCollection, orderBy('date', 'desc'));
+                    return new Observable<Transaction[]>(observer => {
+                        const unsubscribe = onSnapshot(q, (snapshot) => {
+                            const transactions = snapshot.docs.map(doc => {
+                                const data = doc.data();
+                                return {
+                                    id: doc.id,
+                                    ...data,
+                                    date: (data['date'] as any).toDate ? (data['date'] as any).toDate() : new Date(data['date'])
+                                } as Transaction;
+                            });
+                            observer.next(transactions);
+                        }, (error) => {
+                            console.error('Error loading transactions:', error);
+                            observer.error(error);
+                        });
+                        return () => unsubscribe();
+                    }).pipe(
+                        catchError(err => {
+                            console.error('Error in transaction stream:', err);
+                            return of([]);
+                        })
+                    );
+                } else {
+                    return of([]);
+                }
+            })
+        ).subscribe(transactions => {
             this.transactions.set(transactions);
         });
     }
