@@ -1,0 +1,144 @@
+<div class="p-4 space-y-6 pb-20">
+    <!-- Header -->
+    <header class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">MyMoney</h1>
+            <p class="text-gray-500 text-sm">Welcome back!</p>
+        </div>
+        <button routerLink="/categories" class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+            <span class="material-icons text-gray-600">settings</span>
+        </button>
+    </header>
+
+    <!-- Balance Card -->
+    <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg">
+        <p class="text-blue-100 text-sm mb-1">Total Balance</p>
+        <h2 class="text-3xl font-bold mb-6">{{ transactionService.balance() | currency:'INR' }}</h2>
+
+        <div class="flex justify-between">
+            <div>
+                <div class="flex items-center gap-1 text-blue-200 text-xs mb-1">
+                    <span class="material-icons text-sm">arrow_downward</span>
+                    Income
+                </div>
+                <p class="font-semibold">{{ transactionService.totalIncome() | currency:'INR' }}</p>
+            </div>
+            <div class="text-right">
+                <div class="flex items-center justify-end gap-1 text-blue-200 text-xs mb-1">
+                    <span class="material-icons text-sm">arrow_upward</span>
+                    Expense
+                </div>
+                <p class="font-semibold">{{ transactionService.totalExpense() | currency:'INR' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Navigator & Filters -->
+    <div class="flex flex-col gap-4">
+        <!-- Date Nav -->
+        <div class="flex justify-between items-center bg-white p-2 rounded-xl shadow-sm">
+            <button (click)="prevPeriod()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <span class="material-icons text-gray-600">chevron_left</span>
+            </button>
+            <div class="text-lg font-bold text-gray-800">
+                @switch (transactionService.filterState()) {
+                @case ('daily') {
+                <div class="relative cursor-pointer inline-block" (click)="datePicker.showPicker()">
+                    <span>{{ transactionService.currentDate() | date:'MMM d, y' }}</span>
+                    <input #datePicker type="date" [value]="currentDateStr" (change)="onDateChange($event)"
+                        class="absolute inset-0 opacity-0 -z-10">
+                </div>
+                }
+                @case ('monthly') {
+                <div class="relative cursor-pointer inline-block" (click)="monthPicker.showPicker()">
+                    <span>{{ transactionService.currentDate() | date:'MMMM, y' }}</span>
+                    <input #monthPicker type="month" [value]="currentMonthStr" (change)="onMonthChange($event)"
+                        class="absolute inset-0 opacity-0 -z-10">
+                </div>
+                }
+                @default {
+                All Time
+                }
+                }
+            </div>
+            <button (click)="nextPeriod()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <span class="material-icons text-gray-600">chevron_right</span>
+            </button>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="flex bg-gray-100 p-1 rounded-xl">
+            <button (click)="setFilter('daily')" [class.bg-white]="transactionService.filterState() === 'daily'"
+                [class.shadow-sm]="transactionService.filterState() === 'daily'"
+                class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all"
+                [class.text-gray-500]="transactionService.filterState() !== 'daily'"
+                [class.text-blue-600]="transactionService.filterState() === 'daily'">
+                Daily
+            </button>
+            <button (click)="setFilter('monthly')" [class.bg-white]="transactionService.filterState() === 'monthly'"
+                [class.shadow-sm]="transactionService.filterState() === 'monthly'"
+                class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all"
+                [class.text-gray-500]="transactionService.filterState() !== 'monthly'"
+                [class.text-blue-600]="transactionService.filterState() === 'monthly'">
+                Monthly
+            </button>
+        </div>
+    </div>
+
+    <!-- Transaction List (Grouped) -->
+    <div class="space-y-6">
+        @for (group of groupedTransactions(); track group.date) {
+        <div>
+            <!-- Date Header -->
+            <div class="flex justify-between items-center mb-2 px-2">
+                <h3 class="text-gray-500 font-medium text-sm">{{ group.date | date:'MMM d, EEEE' }}</h3>
+                <span class="text-gray-800 text-sm font-bold">{{ group.total | currency:'INR' }}</span>
+            </div>
+
+            <!-- Transactions -->
+            <div class="space-y-3">
+                @for (t of group.transactions; track t.id) {
+                <div (click)="editTransaction(t.id)"
+                    class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm cursor-pointer active:scale-95 transition-transform">
+                    <div class="flex items-center gap-3">
+                        <!-- Icon -->
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                            [style.background-color]="getCategory(t.categoryId)?.color || '#9E9E9E'">
+                            <span class="material-icons text-lg">{{ getCategory(t.categoryId)?.icon || 'category'
+                                }}</span>
+                        </div>
+
+                        <!-- Details -->
+                        <div>
+                            <p class="font-medium text-gray-800">{{ getCategory(t.categoryId)?.name || 'Unknown' }}</p>
+                            <div class="flex items-center gap-1 text-xs text-gray-500">
+                                <span>Cash</span>
+                                @if (t.note) {
+                                <span>• {{ t.note }}</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Amount -->
+                    <p class="font-bold" [class.text-green-600]="t.type === 'income'"
+                        [class.text-red-600]="t.type === 'expense'">
+                        {{ t.type === 'income' ? '+' : '-' }}{{ t.amount | currency:'INR' }}
+                    </p>
+                </div>
+                }
+            </div>
+        </div>
+        } @empty {
+        <div class="text-center py-10 text-gray-500">
+            <p>No transactions found for this period</p>
+        </div>
+        }
+    </div>
+</div>
+
+<!-- Floating Action Button -->
+<button routerLink="/add-transaction"
+    class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-blue-700 transition-colors z-40">
+    <span class="material-icons">add</span>
+</button>
