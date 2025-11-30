@@ -1,51 +1,46 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
-import { StorageService } from './storage.service';
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { Firestore, collection, collectionData, addDoc, doc, deleteDoc, updateDoc, query, orderBy, where, onSnapshot } from '@angular/fire/firestore';
+import { AuthService } from './auth.service';
 import { Transaction } from '../models/models';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Injectable({
     providedIn: 'root'
 })
 export class TransactionService {
-    private storage = inject(StorageService);
+    private firestore = inject(Firestore);
+    private authService = inject(AuthService);
+    private transactionsCollection = collection(this.firestore, 'transactions');
 
     // Signals
     transactions = signal<Transaction[]>([]);
-    filterState = signal<'daily' | 'monthly' | 'all'>('daily'); // Default to daily as per design
-    currentDate = signal<Date>(new Date());
+    filterState = signal<'daily' | 'monthly'>('daily');
+    currentDate = signal(new Date());
 
     // Computed
     filteredTransactions = computed(() => {
         const all = this.transactions();
         const filter = this.filterState();
-        const current = new Date(this.currentDate());
-        const currentDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+        const date = this.currentDate();
 
         return all.filter(t => {
             const tDate = new Date(t.date);
-            const tDateOnly = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
-
-            switch (filter) {
-                case 'daily':
-                    return tDateOnly.getTime() === currentDay.getTime();
-                case 'monthly':
-                    return tDate.getMonth() === currentDay.getMonth() && tDate.getFullYear() === currentDay.getFullYear();
-                default:
-                    return true;
+            if (filter === 'daily') {
+                return tDate.toDateString() === date.toDateString();
+            } else {
+                return tDate.getMonth() === date.getMonth() && tDate.getFullYear() === date.getFullYear();
             }
         }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     });
 
-    totalIncome = computed(() =>
-        this.filteredTransactions()
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0)
-    );
+    totalIncome = computed(() => this.filteredTransactions()
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0));
 
-    totalExpense = computed(() =>
-        this.filteredTransactions()
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0)
-    );
+    totalExpense = computed(() => this.filteredTransactions()
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0));
 
     balance = computed(() => this.totalIncome() - this.totalExpense());
 
@@ -53,29 +48,84 @@ export class TransactionService {
         this.loadTransactions();
     }
 
-    async loadTransactions() {
-        const data = await this.storage.getAllTransactions();
-        this.transactions.set(data);
+    private loadTransactions() {
+        // Fetch ALL transactions ordered by date
+        const q = query(this.transactionsCollection, orderBy('date', 'desc'));
+
+        new Observable<Transaction[]>(observer => {
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const transactions = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        date: (data['date'] as any).toDate ? (data['date'] as any).toDate() : new Date(data['date'])
+                    } as Transaction;
+                });
+                observer.next(transactions);
+            }, (error) => {
+                console.error('Error loading transactions:', error);
+                observer.error(error);
+            });
+            return () => unsubscribe();
+        }).subscribe(transactions => {
+            this.transactions.set(transactions);
+        });
     }
 
     async addTransaction(transaction: Omit<Transaction, 'id'>) {
-        const newTransaction: Transaction = {
-            ...transaction,
-            id: crypto.randomUUID(),
-            date: new Date(transaction.date) // Ensure date object
-        };
+        const user = this.authService.currentUser();
+        if (!user) throw new Error('User not authenticated');
 
-        await this.storage.addTransaction(newTransaction);
-        this.transactions.update(ts => [...ts, newTransaction]);
+        const newTransaction = {
+            ...transaction,
+            userId: user.uid,
+            date: new Date(transaction.date).toISOString() // Store as ISO string for simplicity or Timestamp
+        };
+        await addDoc(this.transactionsCollection, newTransaction);
     }
 
     async updateTransaction(transaction: Transaction) {
-        await this.storage.addTransaction(transaction); // put overwrites
-        this.transactions.update(t => t.map(tr => tr.id === transaction.id ? transaction : tr));
+        const docRef = doc(this.firestore, 'transactions', transaction.id);
+        const { id, ...data } = transaction;
+        await updateDoc(docRef, {
+            ...data,
+            date: new Date(data.date).toISOString()
+        });
     }
 
     async deleteTransaction(id: string) {
-        await this.storage.deleteTransaction(id);
-        this.transactions.update(t => t.filter(tr => tr.id !== id));
+        const docRef = doc(this.firestore, 'transactions', id);
+        await deleteDoc(docRef);
+    }
+
+    // Date Navigation Helpers
+    nextPeriod() {
+        const date = new Date(this.currentDate());
+        if (this.filterState() === 'daily') {
+            date.setDate(date.getDate() + 1);
+        } else {
+            date.setMonth(date.getMonth() + 1);
+        }
+        this.currentDate.set(date);
+    }
+
+    prevPeriod() {
+        const date = new Date(this.currentDate());
+        if (this.filterState() === 'daily') {
+            date.setDate(date.getDate() - 1);
+        } else {
+            date.setMonth(date.getMonth() - 1);
+        }
+        this.currentDate.set(date);
+    }
+
+    setFilter(filter: 'daily' | 'monthly') {
+        this.filterState.set(filter);
+        this.currentDate.set(new Date());
+    }
+
+    setDate(date: Date) {
+        this.currentDate.set(date);
     }
 }

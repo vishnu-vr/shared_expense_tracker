@@ -127,10 +127,15 @@
                     </div>
 
                     <!-- Amount -->
-                    <p class="font-bold" [class.text-green-600]="t.type === 'income'"
-                        [class.text-red-600]="t.type === 'expense'">
-                        {{ t.type === 'income' ? '+' : '-' }}{{ t.amount | currency:'INR' }}
-                    </p>
+                    <div class="text-right">
+                        <p class="font-bold" [class.text-green-600]="t.type === 'income'"
+                            [class.text-red-600]="t.type === 'expense'">
+                            {{ t.type === 'income' ? '+' : '-' }}{{ t.amount | currency:'INR' }}
+                        </p>
+                        @if (!isOwner(t)) {
+                        <span class="material-icons text-xs text-gray-400" title="Read-only">lock</span>
+                        }
+                    </div>
                 </div>
                 }
             </div>

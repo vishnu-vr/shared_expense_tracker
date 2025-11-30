@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { TransactionService } from '../../core/services/transaction.service';
 import { CategoryService } from '../../core/services/category.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Transaction } from '../../core/models/models';
 
 @Component({
@@ -15,6 +16,7 @@ import { Transaction } from '../../core/models/models';
 export class DashboardComponent {
   transactionService = inject(TransactionService);
   categoryService = inject(CategoryService);
+  authService = inject(AuthService);
   private router = inject(Router);
 
   groupedTransactions = computed(() => {
@@ -39,7 +41,7 @@ export class DashboardComponent {
     return groups;
   });
 
-  setFilter(filter: 'daily' | 'monthly' | 'all') {
+  setFilter(filter: 'daily' | 'monthly') {
     this.transactionService.filterState.set(filter);
     // Reset date to today when switching filters (optional, but good UX)
     this.transactionService.currentDate.set(new Date());
@@ -81,6 +83,11 @@ export class DashboardComponent {
 
   getCategory(id: string) {
     return this.categoryService.categories().find(c => c.id === id);
+  }
+
+  isOwner(transaction: Transaction): boolean {
+    const currentUser = this.authService.currentUser();
+    return !!currentUser && !!transaction.userId && transaction.userId === currentUser.uid;
   }
 
   onDateChange(event: Event) {

@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is owner
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Transactions:
+    // - Read: Allow any authenticated user (as per requirement "view other users entries")
+    // - Create: Allow if authenticated and userId matches
+    // - Update/Delete: Allow if authenticated and userId matches existing doc
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // Categories:
+    // - Shared: Allow read/write for all authenticated users
+    match /categories/{categoryId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

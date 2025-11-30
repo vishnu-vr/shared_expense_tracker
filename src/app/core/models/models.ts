@@ -4,10 +4,11 @@ export interface Transaction {
     id: string;
     amount: number;
     categoryId: string;
-    accountId: string;
+    accountId?: string; // Optional for now
     date: Date;
     note?: string;
     type: TransactionType;
+    userId?: string; // Added for Firestore ownership
 }
 
 export interface Category {

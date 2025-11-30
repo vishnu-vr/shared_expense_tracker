@@ -22,16 +22,7 @@ export const routes: Routes = [
         loadComponent: () => import('./features/category-manager/category-list/category-list.component').then(m => m.CategoryListComponent),
         canActivate: [authGuard]
     },
-    {
-        path: 'categories/new',
-        loadComponent: () => import('./features/category-manager/category-form/category-form.component').then(m => m.CategoryFormComponent),
-        canActivate: [authGuard]
-    },
-    {
-        path: 'categories/:id',
-        loadComponent: () => import('./features/category-manager/category-form/category-form.component').then(m => m.CategoryFormComponent),
-        canActivate: [authGuard]
-    },
+
     {
         path: 'edit-transaction/:id',
         loadComponent: () => import('./features/add-transaction/add-transaction.component').then(m => m.AddTransactionComponent),

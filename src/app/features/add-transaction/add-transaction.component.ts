@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { TransactionService } from '../../core/services/transaction.service';
 import { CategoryService } from '../../core/services/category.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Transaction } from '../../core/models/models';
 
 @Component({
@@ -18,9 +19,11 @@ export class AddTransactionComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private transactionService = inject(TransactionService);
+  private authService = inject(AuthService);
   categoryService = inject(CategoryService);
 
   isEdit = signal(false);
+  isOwner = signal(true);
   transactionId: string | null = null;
 
   form = this.fb.group({
@@ -36,7 +39,15 @@ export class AddTransactionComponent implements OnInit {
     if (this.transactionId) {
       this.isEdit.set(true);
       const transaction = this.transactionService.transactions().find(t => t.id === this.transactionId);
+
       if (transaction) {
+        // Check ownership
+        const currentUser = this.authService.currentUser();
+        if (currentUser && transaction.userId && transaction.userId !== currentUser.uid) {
+          this.isOwner.set(false);
+          this.form.disable();
+        }
+
         this.form.patchValue({
           type: transaction.type,
           amount: transaction.amount,
@@ -49,7 +60,7 @@ export class AddTransactionComponent implements OnInit {
   }
 
   async onSubmit() {
-    if (this.form.valid) {
+    if (this.form.valid && this.isOwner()) {
       const val = this.form.value;
       const transactionData = {
         amount: val.amount!,
@@ -73,7 +84,7 @@ export class AddTransactionComponent implements OnInit {
   }
 
   async onDelete() {
-    if (this.isEdit() && this.transactionId) {
+    if (this.isEdit() && this.transactionId && this.isOwner()) {
       if (confirm('Are you sure you want to delete this transaction?')) {
         await this.transactionService.deleteTransaction(this.transactionId);
         this.router.navigate(['/dashboard']);

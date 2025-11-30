@@ -1,49 +1,17 @@
-import { Injectable, signal, inject } from '@angular/core';
-import { StorageService } from './storage.service';
+import { Injectable, signal } from '@angular/core';
 import { Category } from '../models/models';
 
 @Injectable({
     providedIn: 'root'
 })
 export class CategoryService {
-    private storage = inject(StorageService);
-
     categories = signal<Category[]>([]);
 
     constructor() {
         this.loadCategories();
     }
 
-    async loadCategories() {
-        const data = await this.storage.getAllCategories();
-        // Always check and seed missing defaults
-        await this.seedDefaultCategories(data as Category[]);
-
-        // Reload to get the newly added ones if any
-        const updatedData = await this.storage.getAllCategories();
-        this.categories.set(updatedData as Category[]);
-    }
-
-    async addCategory(category: Omit<Category, 'id'>) {
-        const newCategory: Category = {
-            ...category,
-            id: crypto.randomUUID()
-        };
-        await this.storage.addCategory(newCategory as any);
-        this.categories.update(c => [...c, newCategory]);
-    }
-
-    async updateCategory(category: Category) {
-        await this.storage.addCategory(category); // put overwrites
-        this.categories.update(c => c.map(cat => cat.id === category.id ? category : cat));
-    }
-
-    async deleteCategory(id: string) {
-        // TODO: Implement delete in storage service properly
-        this.categories.update(c => c.filter(cat => cat.id !== id));
-    }
-
-    private async seedDefaultCategories(existingCategories: Category[] = []) {
+    private loadCategories() {
         const defaults: Omit<Category, 'id'>[] = [
             // Income
             { name: 'Salary', icon: 'attach_money', color: '#4CAF50', type: 'income' },
@@ -73,11 +41,11 @@ export class CategoryService {
             { name: 'Grocery', icon: 'local_grocery_store', color: '#8BC34A', type: 'expense' },
         ];
 
-        for (const cat of defaults) {
-            const exists = existingCategories.some(c => c.name === cat.name && c.type === cat.type);
-            if (!exists) {
-                await this.addCategory(cat);
-            }
-        }
+        const categoriesWithIds: Category[] = defaults.map(cat => ({
+            ...cat,
+            id: cat.name.toLowerCase().replace(/ /g, '_')
+        }));
+
+        this.categories.set(categoriesWithIds);
     }
 }

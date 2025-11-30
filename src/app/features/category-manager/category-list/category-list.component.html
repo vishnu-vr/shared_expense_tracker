@@ -1,55 +1,46 @@
 <div class="min-h-screen bg-gray-50 pb-20">
-    <!-- Header -->
-    <header class="bg-white p-4 shadow-sm flex items-center gap-4 sticky top-0 z-10">
-        <button routerLink="/dashboard" class="material-icons text-gray-600">arrow_back</button>
-        <h1 class="text-xl font-bold text-gray-800">Categories</h1>
-    </header>
+    <div class="min-h-screen bg-gray-50 pb-20">
+        <!-- Header -->
+        <header class="bg-white p-4 shadow-sm flex items-center gap-4 sticky top-0 z-10">
+            <button routerLink="/dashboard" class="material-icons text-gray-600">arrow_back</button>
+            <h1 class="text-xl font-bold text-gray-800">Categories</h1>
+        </header>
 
-    <div class="p-4 space-y-4">
-        <!-- Income Categories -->
-        <div>
-            <h2 class="text-sm font-bold text-gray-500 mb-2 uppercase">Income</h2>
-            <div class="grid grid-cols-1 gap-2">
-                @for (cat of categoryService.categories(); track cat.id) {
-                @if (cat.type === 'income') {
-                <div (click)="editCategory(cat.id)"
-                    class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm cursor-pointer active:scale-95 transition-transform">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
-                        [style.background-color]="cat.color">
-                        <span class="material-icons text-sm">{{ cat.icon }}</span>
+        <div class="p-4 space-y-4">
+            <!-- Income Categories -->
+            <div>
+                <h2 class="text-sm font-bold text-gray-500 mb-2 uppercase">Income</h2>
+                <div class="grid grid-cols-1 gap-2">
+                    @for (cat of categoryService.categories(); track cat.id) {
+                    @if (cat.type === 'income') {
+                    <div class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                            [style.background-color]="cat.color">
+                            <span class="material-icons text-sm">{{ cat.icon }}</span>
+                        </div>
+                        <span class="font-medium text-gray-800">{{ cat.name }}</span>
                     </div>
-                    <span class="font-medium text-gray-800">{{ cat.name }}</span>
-                    <span class="material-icons text-gray-400 ml-auto">chevron_right</span>
+                    }
+                    }
                 </div>
-                }
-                }
             </div>
-        </div>
 
-        <!-- Expense Categories -->
-        <div>
-            <h2 class="text-sm font-bold text-gray-500 mb-2 uppercase">Expense</h2>
-            <div class="grid grid-cols-1 gap-2">
-                @for (cat of categoryService.categories(); track cat.id) {
-                @if (cat.type === 'expense') {
-                <div (click)="editCategory(cat.id)"
-                    class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm cursor-pointer active:scale-95 transition-transform">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
-                        [style.background-color]="cat.color">
-                        <span class="material-icons text-sm">{{ cat.icon }}</span>
+            <!-- Expense Categories -->
+            <div>
+                <h2 class="text-sm font-bold text-gray-500 mb-2 uppercase">Expense</h2>
+                <div class="grid grid-cols-1 gap-2">
+                    @for (cat of categoryService.categories(); track cat.id) {
+                    @if (cat.type === 'expense') {
+                    <div class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                            [style.background-color]="cat.color">
+                            <span class="material-icons text-sm">{{ cat.icon }}</span>
+                        </div>
+                        <span class="font-medium text-gray-800">{{ cat.name }}</span>
                     </div>
-                    <span class="font-medium text-gray-800">{{ cat.name }}</span>
-                    <span class="material-icons text-gray-400 ml-auto">chevron_right</span>
+                    }
+                    }
                 </div>
-                }
-                }
             </div>
         </div>
     </div>
-
-    <!-- FAB -->
-    <button routerLink="/categories/new"
-        class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-blue-700 transition-colors">
-        <span class="material-icons">add</span>
-    </button>
-</div>

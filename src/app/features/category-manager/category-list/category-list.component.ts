@@ -14,7 +14,5 @@ export class CategoryListComponent {
   categoryService = inject(CategoryService);
   private router = inject(Router);
 
-  editCategory(id: string) {
-    this.router.navigate(['/categories', id]);
-  }
+
 }

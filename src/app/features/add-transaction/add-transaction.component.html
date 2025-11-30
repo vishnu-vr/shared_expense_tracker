@@ -2,16 +2,37 @@
     <!-- Header -->
     <header class="bg-white p-4 shadow-sm flex items-center gap-4 sticky top-0 z-10">
         <button (click)="onCancel()" class="material-icons text-gray-600">arrow_back</button>
-        <h1 class="text-xl font-bold text-gray-800">{{ isEdit() ? 'Edit' : 'Add' }} Transaction</h1>
-        @if (isEdit()) {
+        <h1 class="text-xl font-bold text-gray-800">
+            @if (!isOwner()) {
+            View Transaction
+            } @else {
+            {{ isEdit() ? 'Edit' : 'Add' }} Transaction
+            }
+        </h1>
+        @if (isEdit() && isOwner()) {
         <button (click)="onDelete()" class="material-icons text-red-600 ml-auto">delete</button>
         }
     </header>
 
+    @if (!isOwner()) {
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mx-4 mt-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <span class="material-icons text-yellow-400">warning</span>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    You cannot edit or delete this transaction because it was created by another user.
+                </p>
+            </div>
+        </div>
+    </div>
+    }
+
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="p-4 space-y-6">
 
         <!-- Type Selector -->
-        <div class="flex bg-gray-200 p-1 rounded-xl">
+        <div class="flex bg-gray-200 p-1 rounded-xl" [class.opacity-50]="!isOwner()">
             <label class="flex-1 text-center py-2 rounded-lg cursor-pointer transition-all"
                 [class.bg-white]="form.get('type')?.value === 'income'"
                 [class.shadow-sm]="form.get('type')?.value === 'income'">
@@ -27,7 +48,7 @@
         </div>
 
         <!-- Amount -->
-        <div class="bg-white p-4 rounded-xl shadow-sm">
+        <div class="bg-white p-4 rounded-xl shadow-sm" [class.opacity-50]="!isOwner()">
             <label class="block text-xs text-gray-500 mb-1">Amount</label>
             <div class="flex items-center gap-2">
                 <span class="text-2xl font-bold text-gray-400">₹</span>
@@ -37,7 +58,7 @@
         </div>
 
         <!-- Category -->
-        <div class="bg-white p-4 rounded-xl shadow-sm">
+        <div class="bg-white p-4 rounded-xl shadow-sm" [class.opacity-50]="!isOwner()">
             <label class="block text-xs text-gray-500 mb-3">Category</label>
             <div class="grid grid-cols-4 gap-4">
                 @for (cat of categoryService.categories(); track cat.id) {
@@ -58,7 +79,7 @@
         </div>
 
         <!-- Date & Note -->
-        <div class="bg-white p-4 rounded-xl shadow-sm space-y-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm space-y-4" [class.opacity-50]="!isOwner()">
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Date</label>
                 <input type="date" formControlName="date"
@@ -72,9 +93,12 @@
         </div>
 
         <!-- Submit Button -->
+        @if (isOwner()) {
         <button type="submit" [disabled]="form.invalid"
             class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg disabled:opacity-50 disabled:shadow-none hover:bg-blue-700 transition-all active:scale-95">
             {{ isEdit() ? 'Update' : 'Save' }} Transaction
         </button>
+        }
     </form>
+
 </div>
