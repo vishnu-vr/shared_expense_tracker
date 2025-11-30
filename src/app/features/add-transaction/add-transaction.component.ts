@@ -30,7 +30,7 @@ export class AddTransactionComponent implements OnInit {
     type: ['expense', Validators.required],
     amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
     categoryId: ['', Validators.required],
-    date: [new Date().toISOString().split('T')[0], Validators.required],
+    date: [new Date().toLocaleDateString('en-CA'), Validators.required],
     note: ['']
   });
 

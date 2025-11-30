@@ -1,6 +1,6 @@
 {
-  "name": "MyMoney",
-  "short_name": "MyMoney",
+  "name": "Track Expense",
+  "short_name": "Track Expense",
   "theme_color": "#2563eb",
   "background_color": "#fafafa",
   "display": "standalone",

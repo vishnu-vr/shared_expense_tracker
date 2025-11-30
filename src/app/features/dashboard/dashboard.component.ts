@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { TransactionService } from '../../core/services/transaction.service';
 import { CategoryService } from '../../core/services/category.service';
 import { AuthService } from '../../core/services/auth.service';
+import { PwaService } from '../../core/services/pwa.service';
 import { Transaction } from '../../core/models/models';
 
 @Component({
@@ -17,6 +18,7 @@ export class DashboardComponent {
   transactionService = inject(TransactionService);
   categoryService = inject(CategoryService);
   authService = inject(AuthService);
+  pwaService = inject(PwaService);
   private router = inject(Router);
 
   groupedTransactions = computed(() => {
