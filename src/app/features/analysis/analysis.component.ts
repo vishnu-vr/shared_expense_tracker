@@ -1,8 +1,9 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { TransactionService } from '../../core/services/transaction.service';
 import { CategoryService } from '../../core/services/category.service';
+import { Category, Transaction } from '../../core/models/models';
 
 @Component({
     selector: 'app-analysis',
@@ -14,6 +15,25 @@ import { CategoryService } from '../../core/services/category.service';
 export class AnalysisComponent {
     transactionService = inject(TransactionService);
     categoryService = inject(CategoryService);
+    private router = inject(Router);
+
+    // Selected category for detail view
+    selectedCategory = signal<Category | null>(null);
+
+    // Transactions for the selected category
+    categoryTransactions = computed(() => {
+        const category = this.selectedCategory();
+        if (!category) return [];
+        
+        return this.transactionService.filteredTransactions()
+            .filter(t => t.categoryId === category.id && t.type === 'expense')
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+
+    // Total for the selected category
+    categoryTotal = computed(() => {
+        return this.categoryTransactions().reduce((sum, t) => sum + t.amount, 0);
+    });
 
     // Computed stats for the analysis view
     categoryStats = computed(() => {
@@ -107,5 +127,20 @@ export class AnalysisComponent {
     get currentMonthStr() {
         const date = this.transactionService.currentDate();
         return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    }
+
+    // Select a category to show its transactions
+    selectCategory(category: Category) {
+        this.selectedCategory.set(category);
+    }
+
+    // Close the category detail view
+    closeDetail() {
+        this.selectedCategory.set(null);
+    }
+
+    // Navigate to edit a transaction
+    editTransaction(id: string) {
+        this.router.navigate(['/edit-transaction', id]);
     }
 }

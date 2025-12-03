@@ -68,7 +68,8 @@
     <!-- Category Breakdown List -->
     <div class="space-y-4">
         @for (item of categoryStats(); track item.category.id) {
-        <div class="bg-white p-4 rounded-xl shadow-sm">
+        <div class="bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-shadow active:scale-[0.99]"
+            (click)="selectCategory(item.category)">
             <div class="flex justify-between items-center mb-2">
                 <div class="flex items-center gap-3">
                     <!-- Icon -->
@@ -78,9 +79,12 @@
                     </div>
                     <span class="font-medium text-gray-800">{{ item.category.name }}</span>
                 </div>
-                <div class="text-right">
-                    <p class="font-bold text-gray-800">{{ item.amount | currency:'INR' }}</p>
-                    <p class="text-xs text-gray-500">{{ item.percentage | number:'1.1-1' }}%</p>
+                <div class="text-right flex items-center gap-2">
+                    <div>
+                        <p class="font-bold text-gray-800">{{ item.amount | currency:'INR' }}</p>
+                        <p class="text-xs text-gray-500">{{ item.percentage | number:'1.1-1' }}%</p>
+                    </div>
+                    <span class="material-icons text-gray-400 text-sm">chevron_right</span>
                 </div>
             </div>
 
@@ -98,3 +102,66 @@
         }
     </div>
 </div>
+
+<!-- Category Detail Modal/Panel -->
+@if (selectedCategory()) {
+<div class="fixed inset-0 z-50 flex flex-col">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/50" (click)="closeDetail()"></div>
+    
+    <!-- Panel (slides up from bottom) -->
+    <div class="relative mt-auto bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white rounded-t-3xl border-b border-gray-100 px-4 py-4 flex items-center gap-3">
+            <button (click)="closeDetail()" class="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
+                <span class="material-icons text-gray-600">close</span>
+            </button>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                [style.background-color]="selectedCategory()!.color">
+                <span class="material-icons">{{ selectedCategory()!.icon }}</span>
+            </div>
+            <div class="flex-1">
+                <h2 class="font-bold text-gray-800">{{ selectedCategory()!.name }}</h2>
+                <p class="text-sm text-gray-500">{{ categoryTransactions().length }} transactions</p>
+            </div>
+        </div>
+
+        <!-- Transaction List -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            @for (t of categoryTransactions(); track t.id) {
+            <div (click)="editTransaction(t.id)"
+                class="flex items-center justify-between bg-gray-50 p-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors active:scale-[0.99]">
+                <div class="flex-1">
+                    <p class="font-medium text-gray-800">{{ t.date | date:'MMM d, y' }}</p>
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <span>{{ t.date | date:'h:mm a' }}</span>
+                        @if (t.note) {
+                        <span>• {{ t.note }}</span>
+                        }
+                    </div>
+                </div>
+                <div class="text-right flex items-center gap-2">
+                    <p class="font-bold text-red-600">-{{ t.amount | currency:'INR' }}</p>
+                    <span class="material-icons text-gray-400 text-sm">chevron_right</span>
+                </div>
+            </div>
+            } @empty {
+            <div class="text-center py-10 text-gray-400">
+                <span class="material-icons text-4xl mb-2">receipt_long</span>
+                <p>No transactions found</p>
+            </div>
+            }
+        </div>
+
+        <!-- Total Footer -->
+        <div class="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-4">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600 font-medium">Total</span>
+                <span class="text-xl font-bold text-red-600">
+                    -{{ categoryTotal() | currency:'INR' }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+}
