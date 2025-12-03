@@ -9,6 +9,7 @@ export interface Transaction {
     note?: string;
     type: TransactionType;
     userId?: string; // Added for Firestore ownership
+    userEmail?: string; // User's email for display
 }
 
 export interface Category {

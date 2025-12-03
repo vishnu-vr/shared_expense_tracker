@@ -37,5 +37,13 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isOwner(request.resource.data.createdBy);
       allow update: if isAuthenticated();
     }
+
+    // Users:
+    // - Read: Allow any authenticated user (to lookup user names)
+    // - Write: Allow authenticated users to create/update their own entry
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
   }
 }

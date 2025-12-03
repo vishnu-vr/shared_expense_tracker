@@ -1,7 +1,7 @@
 /**
  * MyMoney CSV Import Script
  * 
- * Usage: node scripts/import-mymoney.js <csv-file-path> <user-id>
+ * Usage: node scripts/import-mymoney.js <csv-file-path> <user-id> [user-email]
  * 
  * CSV Format expected:
  * "TIME","TYPE","AMOUNT","CATEGORY","ACCOUNT","NOTES"
@@ -236,7 +236,7 @@ class MyMoneyImporter {
     }
 
     // Import transactions
-    async import(csvPath, userId) {
+    async import(csvPath, userId, userEmail = null) {
         console.log('\n📊 MyMoney CSV Importer');
         console.log('========================\n');
         
@@ -277,7 +277,8 @@ class MyMoneyImporter {
                     date: date.toISOString(),
                     note: row.notes || '',
                     accountId: row.account || 'Cash',
-                    userId: userId
+                    userId: userId,
+                    userEmail: userEmail || undefined
                 };
 
                 const docRef = this.db.collection('transactions').doc();
@@ -335,24 +336,39 @@ async function main() {
     const args = process.argv.slice(2);
     
     if (args.length < 2) {
-        console.log('Usage: node import-mymoney.js <csv-file-path> <user-id> [service-account-path]');
+        console.log('Usage: node import-mymoney.js <csv-file-path> <user-id> [user-email] [service-account-path]');
         console.log('');
         console.log('Arguments:');
-        console.log('  csv-file-path       Path to MyMoney CSV export file');
-        console.log('  user-id             Firebase Auth user ID to assign transactions to');
+        console.log('  csv-file-path         Path to MyMoney CSV export file');
+        console.log('  user-id               Firebase Auth user ID to assign transactions to');
+        console.log('  user-email            (Optional) User email for display in the app');
         console.log('  service-account-path  (Optional) Path to Firebase service account JSON');
         console.log('                        Default: ./firebase-service-account.json');
         console.log('');
         console.log('Example:');
-        console.log('  node import-mymoney.js ./mymoney-export.csv abc123xyz');
+        console.log('  node import-mymoney.js ./mymoney-export.csv abc123xyz user@email.com');
         process.exit(1);
     }
 
     const csvPath = path.resolve(args[0]);
     const userId = args[1];
-    const serviceAccountPath = args[2] 
-        ? path.resolve(args[2]) 
-        : path.resolve(__dirname, '../firebase-service-account.json');
+    
+    // Check if arg[2] is an email or a path
+    let userEmail = null;
+    let serviceAccountPath = path.resolve(__dirname, '../firebase-service-account.json');
+    
+    if (args[2]) {
+        if (args[2].includes('@')) {
+            // It's an email
+            userEmail = args[2];
+            if (args[3]) {
+                serviceAccountPath = path.resolve(args[3]);
+            }
+        } else {
+            // It's a path
+            serviceAccountPath = path.resolve(args[2]);
+        }
+    }
 
     // Check service account file
     if (!fs.existsSync(serviceAccountPath)) {
@@ -364,9 +380,14 @@ async function main() {
         process.exit(1);
     }
 
+    console.log(`\n👤 User ID: ${userId}`);
+    if (userEmail) {
+        console.log(`📧 User Email: ${userEmail}`);
+    }
+
     try {
         const importer = new MyMoneyImporter(serviceAccountPath);
-        await importer.import(csvPath, userId);
+        await importer.import(csvPath, userId, userEmail);
     } catch (error) {
         console.error('\n❌ Import failed:', error.message);
         process.exit(1);

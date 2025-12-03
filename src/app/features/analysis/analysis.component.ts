@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { TransactionService } from '../../core/services/transaction.service';
 import { CategoryService } from '../../core/services/category.service';
+import { UserService } from '../../core/services/user.service';
 import { Category, Transaction } from '../../core/models/models';
 
 @Component({
@@ -15,17 +16,53 @@ import { Category, Transaction } from '../../core/models/models';
 export class AnalysisComponent {
     transactionService = inject(TransactionService);
     categoryService = inject(CategoryService);
+    userService = inject(UserService);
     private router = inject(Router);
 
     // Selected category for detail view
     selectedCategory = signal<Category | null>(null);
+    
+    // Selected user filter (null = all users)
+    selectedUserId = signal<string | null>(null);
+    showUserDropdown = signal(false);
 
-    // Transactions for the selected category
+    // Get unique users from transactions (use UserService to get names)
+    availableUsers = computed(() => {
+        const transactions = this.transactionService.transactions();
+        const userIds = new Set<string>();
+        
+        // Collect unique user IDs from transactions
+        transactions.forEach(t => {
+            if (t.userId) {
+                userIds.add(t.userId);
+            }
+        });
+        
+        // Map to user objects with names from UserService
+        return Array.from(userIds).map(userId => ({
+            id: userId,
+            name: this.userService.getUserName(userId)
+        }));
+    });
+
+    // Filtered transactions based on user selection
+    userFilteredTransactions = computed(() => {
+        const userId = this.selectedUserId();
+        let transactions = this.transactionService.filteredTransactions();
+        
+        if (userId) {
+            transactions = transactions.filter(t => t.userId === userId);
+        }
+        
+        return transactions;
+    });
+
+    // Transactions for the selected category (with user filter)
     categoryTransactions = computed(() => {
         const category = this.selectedCategory();
         if (!category) return [];
         
-        return this.transactionService.filteredTransactions()
+        return this.userFilteredTransactions()
             .filter(t => t.categoryId === category.id && t.type === 'expense')
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     });
@@ -35,9 +72,16 @@ export class AnalysisComponent {
         return this.categoryTransactions().reduce((sum, t) => sum + t.amount, 0);
     });
 
-    // Computed stats for the analysis view
+    // Total expense with user filter
+    totalExpenseFiltered = computed(() => {
+        return this.userFilteredTransactions()
+            .filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + t.amount, 0);
+    });
+
+    // Computed stats for the analysis view (with user filter)
     categoryStats = computed(() => {
-        const transactions = this.transactionService.filteredTransactions().filter(t => t.type === 'expense');
+        const transactions = this.userFilteredTransactions().filter(t => t.type === 'expense');
         const totalExpense = transactions.reduce((sum, t) => sum + t.amount, 0);
 
         const statsMap = new Map<string, number>();
@@ -142,5 +186,26 @@ export class AnalysisComponent {
     // Navigate to edit a transaction
     editTransaction(id: string) {
         this.router.navigate(['/edit-transaction', id]);
+    }
+
+    // User filter methods
+    selectUser(userId: string | null) {
+        this.selectedUserId.set(userId);
+        this.showUserDropdown.set(false);
+    }
+
+    toggleUserDropdown() {
+        this.showUserDropdown.update(v => !v);
+    }
+
+    getSelectedUserName(): string {
+        const userId = this.selectedUserId();
+        if (!userId) return 'All Users';
+        
+        return this.userService.getUserName(userId);
+    }
+
+    getUserDisplayName(userId: string): string {
+        return this.userService.getUserName(userId);
     }
 }

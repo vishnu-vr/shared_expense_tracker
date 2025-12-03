@@ -94,6 +94,7 @@ export class TransactionService {
         const newTransaction = {
             ...transaction,
             userId: user.uid,
+            userEmail: user.email || undefined,
             date: new Date(transaction.date).toISOString() // Store as ISO string for simplicity or Timestamp
         };
         
