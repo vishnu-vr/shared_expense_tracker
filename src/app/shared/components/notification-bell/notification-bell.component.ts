@@ -38,6 +38,11 @@ export class NotificationBellComponent {
         this.notificationService.markAllAsRead();
     }
 
+    async enablePushNotifications(event: Event) {
+        event.stopPropagation();
+        await this.notificationService.requestPushPermission();
+    }
+
     isRead(notification: any): boolean {
         const user = this.authService.currentUser();
         if (!user) return false;

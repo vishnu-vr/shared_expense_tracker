@@ -12,10 +12,13 @@ export class NotificationService implements OnDestroy {
     private authService = inject(AuthService);
     private notificationsCollection = collection(this.firestore, 'notifications');
     private unsubscribe: (() => void) | null = null;
+    private seenNotificationIds = new Set<string>();
+    private isInitialLoad = true;
 
     // Signals
     notifications = signal<Notification[]>([]);
     showDropdown = signal(false);
+    pushPermission = signal<NotificationPermission>('default');
 
     // Computed: unread notifications for current user
     unreadNotifications = computed(() => {
@@ -38,7 +41,59 @@ export class NotificationService implements OnDestroy {
     });
 
     constructor() {
+        this.initPushNotifications();
         this.loadNotifications();
+    }
+
+    // Initialize push notification permission
+    private async initPushNotifications() {
+        if (!('Notification' in window)) {
+            console.log('This browser does not support notifications');
+            return;
+        }
+
+        this.pushPermission.set(Notification.permission);
+        
+        // If permission not yet requested, we'll ask when user interacts
+        if (Notification.permission === 'default') {
+            // Permission will be requested when user enables notifications
+        }
+    }
+
+    // Request permission for push notifications
+    async requestPushPermission(): Promise<boolean> {
+        if (!('Notification' in window)) {
+            return false;
+        }
+
+        const permission = await Notification.requestPermission();
+        this.pushPermission.set(permission);
+        return permission === 'granted';
+    }
+
+    // Show a native device notification
+    private showPushNotification(notification: Notification) {
+        if (this.pushPermission() !== 'granted') return;
+        if (document.hasFocus()) return; // Don't show if app is focused
+
+        const options: NotificationOptions & { vibrate?: number[] } = {
+            body: notification.message,
+            icon: '/assets/icons/icon-192x192.png',
+            badge: '/assets/icons/icon-72x72.png',
+            tag: notification.id, // Prevents duplicate notifications
+            vibrate: [200, 100, 200], // Vibration pattern for mobile devices
+            data: {
+                transactionId: notification.transactionId,
+                url: '/dashboard'
+            }
+        };
+
+        const pushNotif = new window.Notification('Expense Tracker', options);
+        
+        pushNotif.onclick = () => {
+            window.focus();
+            pushNotif.close();
+        };
     }
 
     ngOnDestroy() {
@@ -54,6 +109,10 @@ export class NotificationService implements OnDestroy {
                 this.unsubscribe = null;
             }
 
+            // Reset state when user changes
+            this.seenNotificationIds.clear();
+            this.isInitialLoad = true;
+
             if (user) {
                 // Fetch recent notifications (last 50, ordered by date)
                 const q = query(
@@ -63,15 +122,30 @@ export class NotificationService implements OnDestroy {
                 );
                 
                 this.unsubscribe = onSnapshot(q, (snapshot) => {
-                    const notifications = snapshot.docs.map(doc => {
-                        const data = doc.data();
+                    const notifications = snapshot.docs.map(docSnap => {
+                        const data = docSnap.data();
                         return {
-                            id: doc.id,
+                            id: docSnap.id,
                             ...data,
                             createdAt: data['createdAt']?.toDate ? data['createdAt'].toDate() : new Date(data['createdAt']),
                             readBy: data['readBy'] || []
                         } as Notification;
                     });
+
+                    // Detect new notifications (not from current user)
+                    if (!this.isInitialLoad) {
+                        notifications.forEach(n => {
+                            if (!this.seenNotificationIds.has(n.id) && n.createdBy !== user.uid) {
+                                // This is a new notification from another user
+                                this.showPushNotification(n);
+                            }
+                        });
+                    }
+
+                    // Update seen IDs
+                    notifications.forEach(n => this.seenNotificationIds.add(n.id));
+                    this.isInitialLoad = false;
+
                     this.notifications.set(notifications);
                 }, (error) => {
                     console.error('Error loading notifications:', error);

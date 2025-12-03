@@ -15,7 +15,7 @@
 
     <!-- Dropdown -->
     @if (notificationService.showDropdown()) {
-        <div class="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <div class="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-16 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
             <!-- Header -->
             <div class="flex justify-between items-center px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
                 <h3 class="font-semibold">Notifications</h3>
@@ -27,6 +27,32 @@
                     </button>
                 }
             </div>
+
+            <!-- Push Notification Permission Banner -->
+            @if (notificationService.pushPermission() === 'default') {
+                <div class="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                    <div class="flex items-center gap-3">
+                        <span class="material-icons text-blue-500">notifications_active</span>
+                        <div class="flex-1">
+                            <p class="text-sm text-blue-800 font-medium">Enable push notifications</p>
+                            <p class="text-xs text-blue-600">Get notified when others add transactions</p>
+                        </div>
+                        <button 
+                            (click)="enablePushNotifications($event)"
+                            class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors">
+                            Enable
+                        </button>
+                    </div>
+                </div>
+            }
+            @if (notificationService.pushPermission() === 'denied') {
+                <div class="px-4 py-2 bg-red-50 border-b border-red-100">
+                    <p class="text-xs text-red-600">
+                        <span class="material-icons text-sm align-middle mr-1">block</span>
+                        Push notifications are blocked. Enable them in browser settings.
+                    </p>
+                </div>
+            }
 
             <!-- Notification List -->
             <div class="max-h-80 overflow-y-auto">
