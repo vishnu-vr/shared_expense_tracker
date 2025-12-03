@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Firestore, collection, collectionData, addDoc, doc, deleteDoc, updateDoc, query, orderBy, where, onSnapshot } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, addDoc, doc, deleteDoc, updateDoc, setDoc, query, orderBy, where, onSnapshot } from '@angular/fire/firestore';
 import { AuthService } from './auth.service';
+import { NotificationService } from './notification.service';
 import { Transaction } from '../models/models';
 import { Observable, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
@@ -11,6 +12,7 @@ import { map, switchMap, catchError } from 'rxjs/operators';
 export class TransactionService {
     private firestore = inject(Firestore);
     private authService = inject(AuthService);
+    private notificationService = inject(NotificationService);
     private transactionsCollection = collection(this.firestore, 'transactions');
 
     // Signals
@@ -94,9 +96,26 @@ export class TransactionService {
             userId: user.uid,
             date: new Date(transaction.date).toISOString() // Store as ISO string for simplicity or Timestamp
         };
-        const op = addDoc(this.transactionsCollection, newTransaction);
+        
+        // Generate document ID locally so we don't have to wait for the write
+        const docRef = doc(this.transactionsCollection);
+        const transactionOp = setDoc(docRef, newTransaction);
+        
+        // Create notification for other users
+        const userName = user.displayName || user.email || 'Someone';
+        const typeLabel = transaction.type === 'income' ? 'income' : 'expense';
+        const message = `${userName} added a new ${typeLabel} of ₹${transaction.amount.toLocaleString('en-IN')}`;
+        const notificationOp = this.notificationService.createNotification(
+            'transaction_added',
+            message,
+            docRef.id
+        );
+        
+        // If offline, return immediately - Firestore will sync when back online
         if (!navigator.onLine) return;
-        await op;
+        
+        // If online, wait for both operations
+        await Promise.all([transactionOp, notificationOp]);
     }
 
     async updateTransaction(transaction: Transaction) {

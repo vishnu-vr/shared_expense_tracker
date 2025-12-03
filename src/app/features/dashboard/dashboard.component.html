@@ -5,7 +5,7 @@
             <h1 class="text-2xl font-bold text-gray-800">Track Expense</h1>
             <p class="text-gray-500 text-sm">Welcome back!</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
             @if (pwaService.showInstallButton()) {
             <button (click)="pwaService.installPwa()"
                 class="p-2 rounded-full bg-blue-600 hover:bg-blue-700 transition-colors text-white shadow-sm"
@@ -13,6 +13,7 @@
                 <span class="material-icons">download</span>
             </button>
             }
+            <app-notification-bell></app-notification-bell>
             <button routerLink="/analysis"
                 class="p-2 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors text-blue-600">
                 <span class="material-icons">pie_chart</span>

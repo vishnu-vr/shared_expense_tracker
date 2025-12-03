@@ -27,5 +27,15 @@ service cloud.firestore {
     match /categories/{categoryId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Notifications:
+    // - Read: Allow any authenticated user
+    // - Create: Allow if authenticated and createdBy matches user ID
+    // - Update: Allow authenticated users to update (for marking as read)
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(request.resource.data.createdBy);
+      allow update: if isAuthenticated();
+    }
   }
 }

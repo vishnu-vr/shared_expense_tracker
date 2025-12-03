@@ -6,11 +6,12 @@ import { CategoryService } from '../../core/services/category.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PwaService } from '../../core/services/pwa.service';
 import { Transaction } from '../../core/models/models';
+import { NotificationBellComponent } from '../../shared/components/notification-bell/notification-bell.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, NotificationBellComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })

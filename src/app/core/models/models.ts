@@ -32,3 +32,14 @@ export interface Budget {
     amount: number;
     period: 'monthly';
 }
+
+export interface Notification {
+    id: string;
+    type: 'transaction_added' | 'transaction_updated' | 'transaction_deleted';
+    message: string;
+    transactionId?: string;
+    createdBy: string;
+    createdByName: string;
+    createdAt: Date;
+    readBy: string[]; // Array of user IDs who have read this notification
+}
