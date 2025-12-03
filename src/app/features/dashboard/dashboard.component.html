@@ -126,7 +126,7 @@
                         <div>
                             <p class="font-medium text-gray-800">{{ getCategory(t.categoryId)?.name || 'Unknown' }}</p>
                             <div class="flex items-center gap-1 text-xs text-gray-500">
-                                <span>Cash</span>
+                                <span>{{ t.date | date:'h:mm a' }}</span>
                                 @if (t.note) {
                                 <span>• {{ t.note }}</span>
                                 }

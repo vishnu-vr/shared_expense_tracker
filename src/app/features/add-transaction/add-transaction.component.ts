@@ -32,6 +32,7 @@ export class AddTransactionComponent implements OnInit {
     amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
     categoryId: ['', Validators.required],
     date: [new Date().toLocaleDateString('en-CA'), Validators.required],
+    time: [new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), Validators.required],
     note: ['']
   });
 
@@ -49,11 +50,13 @@ export class AddTransactionComponent implements OnInit {
           this.form.disable();
         }
 
+        const transDate = new Date(transaction.date);
         this.form.patchValue({
           type: transaction.type,
           amount: transaction.amount,
           categoryId: transaction.categoryId,
-          date: new Date(transaction.date).toISOString().split('T')[0],
+          date: transDate.toLocaleDateString('en-CA'),
+          time: transDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
           note: transaction.note
         });
       }
@@ -65,11 +68,13 @@ export class AddTransactionComponent implements OnInit {
       this.isSaving.set(true);
       try {
         const val = this.form.value;
+        // Combine date and time
+        const dateTime = new Date(`${val.date}T${val.time}`);
         const transactionData = {
           amount: val.amount!,
           type: val.type as 'income' | 'expense',
           categoryId: val.categoryId!,
-          date: new Date(val.date!),
+          date: dateTime,
           note: val.note || '',
           accountId: 'default' // Placeholder
         };
