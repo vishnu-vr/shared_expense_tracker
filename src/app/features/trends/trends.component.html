@@ -82,6 +82,75 @@
         </div>
     </div>
 
+    <!-- Monthly Expense Chart -->
+    <div class="bg-white p-4 rounded-xl shadow-sm">
+        <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <span class="material-icons text-amber-500">bar_chart</span>
+            Monthly Spending Overview
+        </h3>
+        
+        @if (chartBars().length > 0 && totalExpenseForPeriod() > 0) {
+        <div class="relative">
+            <!-- Average line -->
+            <div class="absolute left-0 right-0 border-t-2 border-dashed border-blue-300 z-10"
+                 [style.bottom.px]="(averageMonthlyExpense() / maxMonthlyExpense()) * 150">
+                <span class="absolute -top-3 right-0 text-xs text-blue-500 bg-white px-1">
+                    Avg: {{ averageMonthlyExpense() | currency:'INR':'symbol':'1.0-0' }}
+                </span>
+            </div>
+            
+            <!-- Bar Chart -->
+            <div class="overflow-x-auto pb-2">
+                <svg [attr.viewBox]="'0 0 ' + (chartBars().length * 40) + ' 180'" 
+                     class="w-full min-w-[200px]" 
+                     [style.min-width.px]="chartBars().length * 35"
+                     preserveAspectRatio="xMidYMax meet">
+                    
+                    <!-- Bars -->
+                    @for (bar of chartBars(); track bar.month; let i = $index) {
+                    <g class="cursor-pointer" [attr.transform]="'translate(' + (i * 40 + 10) + ', 0)'">
+                        <!-- Bar -->
+                        <rect 
+                            [attr.y]="150 - bar.barHeight"
+                            [attr.height]="bar.barHeight"
+                            width="24"
+                            rx="4"
+                            class="fill-amber-500 hover:fill-amber-600 transition-colors">
+                            <title>{{ bar.monthLabel }} {{ bar.year }}: {{ bar.amount | currency:'INR' }}</title>
+                        </rect>
+                        
+                        <!-- Amount label (shown on hover or always for small datasets) -->
+                        @if (selectedPeriod() <= 6) {
+                        <text 
+                            [attr.y]="145 - bar.barHeight"
+                            x="12"
+                            text-anchor="middle"
+                            class="text-[8px] fill-gray-600 font-medium">
+                            {{ bar.amount >= 1000 ? (bar.amount / 1000 | number:'1.0-0') + 'k' : (bar.amount | number:'1.0-0') }}
+                        </text>
+                        }
+                        
+                        <!-- Month label -->
+                        <text 
+                            y="168"
+                            x="12"
+                            text-anchor="middle"
+                            class="text-[10px] fill-gray-500">
+                            {{ bar.monthLabel }}
+                        </text>
+                    </g>
+                    }
+                </svg>
+            </div>
+        </div>
+        } @else {
+        <div class="text-center py-8 text-gray-400">
+            <span class="material-icons text-4xl mb-2">bar_chart</span>
+            <p class="text-sm">No expense data for this period</p>
+        </div>
+        }
+    </div>
+
     <!-- Monthly Breakdown -->
     <div class="space-y-4">
         <h3 class="font-semibold text-gray-800 flex items-center gap-2">

@@ -18,6 +18,18 @@ interface MonthlyTopSpending {
     totalExpense: number;
 }
 
+interface ChartBar {
+    month: string;
+    monthLabel: string;
+    year: number;
+    amount: number;
+    percentage: number; // Percentage of max value (for bar height)
+    x: number;
+    barWidth: number;
+    barHeight: number;
+    y: number;
+}
+
 @Component({
     selector: 'app-trends',
     standalone: true,
@@ -137,6 +149,39 @@ export class TrendsComponent {
         const months = this.monthlyTopSpending().filter(m => m.totalExpense > 0);
         if (months.length === 0) return 0;
         return this.totalExpenseForPeriod() / months.length;
+    });
+
+    // Max monthly expense (for chart scaling)
+    maxMonthlyExpense = computed(() => {
+        return Math.max(...this.monthlyTopSpending().map(m => m.totalExpense), 1);
+    });
+
+    // Chart bar data (reversed to show oldest first, left to right)
+    chartBars = computed<ChartBar[]>(() => {
+        const data = [...this.monthlyTopSpending()].reverse();
+        const maxExpense = this.maxMonthlyExpense();
+        const chartWidth = 300;
+        const chartHeight = 150;
+        const barGap = 4;
+        const numBars = data.length;
+        const barWidth = Math.max(8, (chartWidth - (numBars - 1) * barGap) / numBars);
+
+        return data.map((m, index) => {
+            const percentage = maxExpense > 0 ? (m.totalExpense / maxExpense) * 100 : 0;
+            const barHeight = (percentage / 100) * chartHeight;
+            
+            return {
+                month: m.month,
+                monthLabel: m.monthLabel,
+                year: m.year,
+                amount: m.totalExpense,
+                percentage,
+                x: index * (barWidth + barGap),
+                barWidth,
+                barHeight: Math.max(barHeight, 2), // Minimum height for visibility
+                y: chartHeight - barHeight
+            };
+        });
     });
 
     // Set time period
