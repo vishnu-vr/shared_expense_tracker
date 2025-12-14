@@ -31,6 +31,14 @@ export class TrendsComponent {
     userService = inject(UserService);
     private router = inject(Router);
 
+    // Time period options
+    readonly periodOptions = [
+        { value: 3, label: '3 Months' },
+        { value: 6, label: '6 Months' },
+        { value: 12, label: '12 Months' }
+    ];
+    selectedPeriod = signal(6); // Default 6 months
+
     // Selected user filter (null = all users)
     selectedUserId = signal<string | null>(null);
     showUserDropdown = signal(false);
@@ -55,10 +63,11 @@ export class TrendsComponent {
         }));
     });
 
-    // Last 6 months top 5 spending
-    last6MonthsTopSpending = computed<MonthlyTopSpending[]>(() => {
+    // Top spending by month for selected period
+    monthlyTopSpending = computed<MonthlyTopSpending[]>(() => {
         const allTransactions = this.transactionService.transactions();
         const userId = this.selectedUserId();
+        const period = this.selectedPeriod();
         
         // Filter by user if selected
         let transactions = userId 
@@ -71,7 +80,7 @@ export class TrendsComponent {
         const now = new Date();
         const months: MonthlyTopSpending[] = [];
 
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < period; i++) {
             const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const monthKey = `${monthDate.getFullYear()}-${monthDate.getMonth()}`;
             const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
@@ -118,17 +127,22 @@ export class TrendsComponent {
         return months;
     });
 
-    // Total expense across all 6 months
-    totalExpense6Months = computed(() => {
-        return this.last6MonthsTopSpending().reduce((sum, m) => sum + m.totalExpense, 0);
+    // Total expense across selected period
+    totalExpenseForPeriod = computed(() => {
+        return this.monthlyTopSpending().reduce((sum, m) => sum + m.totalExpense, 0);
     });
 
     // Average monthly expense
     averageMonthlyExpense = computed(() => {
-        const months = this.last6MonthsTopSpending().filter(m => m.totalExpense > 0);
+        const months = this.monthlyTopSpending().filter(m => m.totalExpense > 0);
         if (months.length === 0) return 0;
-        return this.totalExpense6Months() / months.length;
+        return this.totalExpenseForPeriod() / months.length;
     });
+
+    // Set time period
+    setPeriod(months: number) {
+        this.selectedPeriod.set(months);
+    }
 
     // Category transactions for detail view
     categoryTransactions = computed(() => {
@@ -136,6 +150,7 @@ export class TrendsComponent {
         if (!category) return [];
         
         const userId = this.selectedUserId();
+        const period = this.selectedPeriod();
         let transactions = this.transactionService.transactions()
             .filter(t => t.categoryId === category.id && t.type === 'expense');
         
@@ -143,12 +158,12 @@ export class TrendsComponent {
             transactions = transactions.filter(t => t.userId === userId);
         }
         
-        // Filter to last 6 months
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        // Filter to selected period
+        const periodStart = new Date();
+        periodStart.setMonth(periodStart.getMonth() - period);
         
         return transactions
-            .filter(t => new Date(t.date) >= sixMonthsAgo)
+            .filter(t => new Date(t.date) >= periodStart)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     });
 

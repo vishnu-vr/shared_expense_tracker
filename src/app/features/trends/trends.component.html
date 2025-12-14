@@ -6,9 +6,23 @@
         </button>
         <div>
             <h1 class="text-xl font-bold text-gray-800">Spending Trends</h1>
-            <p class="text-sm text-gray-500">Last 6 months analysis</p>
+            <p class="text-sm text-gray-500">Last {{ selectedPeriod() }} months analysis</p>
         </div>
     </header>
+
+    <!-- Period Selector -->
+    <div class="flex bg-gray-100 p-1 rounded-xl">
+        @for (option of periodOptions; track option.value) {
+        <button (click)="setPeriod(option.value)" 
+            [class.bg-white]="selectedPeriod() === option.value"
+            [class.shadow-sm]="selectedPeriod() === option.value"
+            class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all"
+            [class.text-gray-500]="selectedPeriod() !== option.value"
+            [class.text-amber-600]="selectedPeriod() === option.value">
+            {{ option.label }}
+        </button>
+        }
+    </div>
 
     <!-- User Filter -->
     @if (availableUsers().length > 1) {
@@ -59,8 +73,8 @@
     <!-- Summary Cards -->
     <div class="grid grid-cols-2 gap-3">
         <div class="bg-gradient-to-br from-amber-500 to-orange-500 p-4 rounded-xl text-white">
-            <p class="text-white/80 text-xs mb-1">6 Month Total</p>
-            <p class="text-xl font-bold">{{ totalExpense6Months() | currency:'INR':'symbol':'1.0-0' }}</p>
+            <p class="text-white/80 text-xs mb-1">{{ selectedPeriod() }} Month Total</p>
+            <p class="text-xl font-bold">{{ totalExpenseForPeriod() | currency:'INR':'symbol':'1.0-0' }}</p>
         </div>
         <div class="bg-gradient-to-br from-blue-500 to-indigo-500 p-4 rounded-xl text-white">
             <p class="text-white/80 text-xs mb-1">Monthly Average</p>
@@ -75,7 +89,7 @@
             Top 5 Categories Per Month
         </h3>
         
-        @for (month of last6MonthsTopSpending(); track month.month) {
+        @for (month of monthlyTopSpending(); track month.month) {
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <!-- Month Header -->
             <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 flex justify-between items-center">
@@ -157,7 +171,7 @@
             </div>
             <div class="flex-1">
                 <h2 class="font-bold text-gray-800">{{ selectedCategory()!.name }}</h2>
-                <p class="text-sm text-gray-500">{{ categoryTransactions().length }} transactions (6 months)</p>
+                <p class="text-sm text-gray-500">{{ categoryTransactions().length }} transactions ({{ selectedPeriod() }} months)</p>
             </div>
         </div>
 
@@ -190,7 +204,7 @@
         <!-- Total Footer -->
         <div class="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-4">
             <div class="flex justify-between items-center">
-                <span class="text-gray-600 font-medium">Total (6 months)</span>
+                <span class="text-gray-600 font-medium">Total ({{ selectedPeriod() }} months)</span>
                 <span class="text-xl font-bold text-red-600">
                     -{{ categoryTotal() | currency:'INR' }}
                 </span>
