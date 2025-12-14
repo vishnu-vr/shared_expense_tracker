@@ -93,7 +93,7 @@
         <div class="relative">
             <!-- Average line -->
             <div class="absolute left-0 right-0 border-t-2 border-dashed border-blue-300 z-10"
-                 [style.bottom.px]="(averageMonthlyExpense() / maxMonthlyExpense()) * 150">
+                 [style.bottom.px]="(averageMonthlyExpense() / maxMonthlyExpense()) * 150 + 30">
                 <span class="absolute -top-3 right-0 text-xs text-blue-500 bg-white px-1">
                     Avg: {{ averageMonthlyExpense() | currency:'INR':'symbol':'1.0-0' }}
                 </span>
@@ -101,14 +101,14 @@
             
             <!-- Bar Chart -->
             <div class="overflow-x-auto pb-2">
-                <svg [attr.viewBox]="'0 0 ' + (chartBars().length * 40) + ' 180'" 
-                     class="w-full min-w-[200px]" 
-                     [style.min-width.px]="chartBars().length * 35"
+                <svg [attr.viewBox]="'0 0 ' + (chartBars().length * 40 + 20) + ' 200'" 
+                     class="w-full" 
+                     [style.min-width.px]="chartBars().length * 40 + 20"
                      preserveAspectRatio="xMidYMax meet">
                     
                     <!-- Bars -->
                     @for (bar of chartBars(); track bar.month; let i = $index) {
-                    <g class="cursor-pointer" [attr.transform]="'translate(' + (i * 40 + 10) + ', 0)'">
+                    <g class="cursor-pointer" [attr.transform]="'translate(' + (i * 40 + 10) + ', 20)'">
                         <!-- Bar -->
                         <rect 
                             [attr.y]="150 - bar.barHeight"
