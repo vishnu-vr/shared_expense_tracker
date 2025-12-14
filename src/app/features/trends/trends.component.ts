@@ -55,9 +55,6 @@ export class TrendsComponent {
     selectedUserId = signal<string | null>(null);
     showUserDropdown = signal(false);
 
-    // Selected category for detail view
-    selectedCategory = signal<Category | null>(null);
-
     // Get unique users from transactions
     availableUsers = computed(() => {
         const transactions = this.transactionService.transactions();
@@ -189,33 +186,6 @@ export class TrendsComponent {
         this.selectedPeriod.set(months);
     }
 
-    // Category transactions for detail view
-    categoryTransactions = computed(() => {
-        const category = this.selectedCategory();
-        if (!category) return [];
-        
-        const userId = this.selectedUserId();
-        const period = this.selectedPeriod();
-        let transactions = this.transactionService.transactions()
-            .filter(t => t.categoryId === category.id && t.type === 'expense');
-        
-        if (userId) {
-            transactions = transactions.filter(t => t.userId === userId);
-        }
-        
-        // Filter to selected period
-        const periodStart = new Date();
-        periodStart.setMonth(periodStart.getMonth() - period);
-        
-        return transactions
-            .filter(t => new Date(t.date) >= periodStart)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    });
-
-    categoryTotal = computed(() => {
-        return this.categoryTransactions().reduce((sum, t) => sum + t.amount, 0);
-    });
-
     // User filter methods
     selectUser(userId: string | null) {
         this.selectedUserId.set(userId);
@@ -232,16 +202,18 @@ export class TrendsComponent {
         return this.userService.getUserName(userId);
     }
 
-    selectCategory(category: Category) {
-        this.selectedCategory.set(category);
-    }
-
-    closeDetail() {
-        this.selectedCategory.set(null);
-    }
-
-    editTransaction(id: string) {
-        this.router.navigate(['/edit-transaction', id]);
+    // Navigate to analysis page with specific month selected
+    goToMonthAnalysis(monthLabel: string, year: number) {
+        // Find the month index (0-11) from the label
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthIndex = monthNames.indexOf(monthLabel);
+        
+        if (monthIndex !== -1) {
+            // Set the transaction service to monthly view with the selected month
+            this.transactionService.filterState.set('monthly');
+            this.transactionService.currentDate.set(new Date(year, monthIndex, 1));
+            this.router.navigate(['/analysis']);
+        }
     }
 }
 
