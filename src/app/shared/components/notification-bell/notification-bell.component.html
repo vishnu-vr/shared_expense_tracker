@@ -64,9 +64,11 @@
                 } @else {
                     @for (notification of notificationService.visibleNotifications(); track notification.id) {
                         <div 
-                            class="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
+                            class="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors"
                             [class.bg-amber-50]="!isRead(notification)"
-                            (click)="markAsRead(notification.id, $event)">
+                            [class.cursor-pointer]="notification.type !== 'transaction_deleted'"
+                            [class.cursor-default]="notification.type === 'transaction_deleted'"
+                            (click)="onNotificationClick(notification, $event)">
                             <div class="flex gap-3">
                                 <!-- Icon -->
                                 <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
@@ -90,12 +92,15 @@
                                     </p>
                                 </div>
 
-                                <!-- Unread indicator -->
-                                @if (!isRead(notification)) {
-                                    <div class="flex-shrink-0">
+                                <!-- Navigation arrow or unread indicator -->
+                                <div class="flex-shrink-0 flex items-center gap-1">
+                                    @if (!isRead(notification)) {
                                         <span class="w-2 h-2 bg-amber-500 rounded-full block"></span>
-                                    </div>
-                                }
+                                    }
+                                    @if (notification.type !== 'transaction_deleted' && notification.transactionId) {
+                                        <span class="material-icons text-gray-400 text-base">chevron_right</span>
+                                    }
+                                </div>
                             </div>
                         </div>
                     }

@@ -1,7 +1,9 @@
 import { Component, inject, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { NotificationService } from '../../../core/services/notification.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { Notification } from '../../../core/models/models';
 
 @Component({
     selector: 'app-notification-bell',
@@ -14,6 +16,7 @@ export class NotificationBellComponent {
     notificationService = inject(NotificationService);
     private authService = inject(AuthService);
     private elementRef = inject(ElementRef);
+    private router = inject(Router);
 
     @HostListener('document:click', ['$event'])
     onDocumentClick(event: MouseEvent) {
@@ -28,9 +31,15 @@ export class NotificationBellComponent {
         this.notificationService.toggleDropdown();
     }
 
-    markAsRead(notificationId: string, event: Event) {
+    onNotificationClick(notification: Notification, event: Event) {
         event.stopPropagation();
-        this.notificationService.markAsRead(notificationId);
+        this.notificationService.markAsRead(notification.id);
+        this.notificationService.closeDropdown();
+        
+        // Navigate to transaction if it exists and wasn't deleted
+        if (notification.transactionId && notification.type !== 'transaction_deleted') {
+            this.router.navigate(['/edit-transaction', notification.transactionId]);
+        }
     }
 
     markAllAsRead(event: Event) {
