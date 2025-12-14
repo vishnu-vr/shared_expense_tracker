@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
-import { Firestore, collection, collectionData, addDoc, doc, updateDoc, query, orderBy, onSnapshot, arrayUnion, Timestamp, limit } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, addDoc, doc, updateDoc, query, orderBy, onSnapshot, arrayUnion, Timestamp, limit, startAfter, getDocs, DocumentSnapshot, QueryDocumentSnapshot } from '@angular/fire/firestore';
 import { AuthService } from './auth.service';
 import { Notification } from '../models/models';
 import { Subscription } from 'rxjs';
@@ -14,11 +14,15 @@ export class NotificationService implements OnDestroy {
     private unsubscribe: (() => void) | null = null;
     private seenNotificationIds = new Set<string>();
     private isInitialLoad = true;
+    private lastDoc: QueryDocumentSnapshot | null = null;
+    private readonly PAGE_SIZE = 10;
 
     // Signals
     notifications = signal<Notification[]>([]);
     showDropdown = signal(false);
     pushPermission = signal<NotificationPermission>('default');
+    isLoadingMore = signal(false);
+    hasMoreNotifications = signal(true);
 
     // Computed: unread notifications for current user
     unreadNotifications = computed(() => {
@@ -112,13 +116,15 @@ export class NotificationService implements OnDestroy {
             // Reset state when user changes
             this.seenNotificationIds.clear();
             this.isInitialLoad = true;
+            this.lastDoc = null;
+            this.hasMoreNotifications.set(true);
 
             if (user) {
-                // Fetch recent notifications (last 50, ordered by date)
+                // Fetch first page of notifications
                 const q = query(
                     this.notificationsCollection, 
                     orderBy('createdAt', 'desc'),
-                    limit(50)
+                    limit(this.PAGE_SIZE)
                 );
                 
                 this.unsubscribe = onSnapshot(q, (snapshot) => {
@@ -131,6 +137,14 @@ export class NotificationService implements OnDestroy {
                             readBy: data['readBy'] || []
                         } as Notification;
                     });
+
+                    // Update lastDoc for pagination
+                    if (snapshot.docs.length > 0) {
+                        this.lastDoc = snapshot.docs[snapshot.docs.length - 1];
+                    }
+                    
+                    // Check if there might be more
+                    this.hasMoreNotifications.set(snapshot.docs.length === this.PAGE_SIZE);
 
                     // Detect new notifications (not from current user)
                     if (!this.isInitialLoad) {
@@ -154,6 +168,52 @@ export class NotificationService implements OnDestroy {
                 this.notifications.set([]);
             }
         });
+    }
+
+    async loadMore() {
+        if (!this.lastDoc || this.isLoadingMore() || !this.hasMoreNotifications()) {
+            return;
+        }
+
+        this.isLoadingMore.set(true);
+
+        try {
+            const q = query(
+                this.notificationsCollection,
+                orderBy('createdAt', 'desc'),
+                startAfter(this.lastDoc),
+                limit(this.PAGE_SIZE)
+            );
+
+            const snapshot = await getDocs(q);
+            
+            const newNotifications = snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                return {
+                    id: docSnap.id,
+                    ...data,
+                    createdAt: data['createdAt']?.toDate ? data['createdAt'].toDate() : new Date(data['createdAt']),
+                    readBy: data['readBy'] || []
+                } as Notification;
+            });
+
+            if (snapshot.docs.length > 0) {
+                this.lastDoc = snapshot.docs[snapshot.docs.length - 1];
+            }
+
+            // Check if there are more notifications
+            this.hasMoreNotifications.set(snapshot.docs.length === this.PAGE_SIZE);
+
+            // Add new notifications to seen set
+            newNotifications.forEach(n => this.seenNotificationIds.add(n.id));
+
+            // Append new notifications to existing ones
+            this.notifications.update(current => [...current, ...newNotifications]);
+        } catch (error) {
+            console.error('Error loading more notifications:', error);
+        } finally {
+            this.isLoadingMore.set(false);
+        }
     }
 
     async createNotification(

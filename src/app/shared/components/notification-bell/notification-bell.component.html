@@ -104,10 +104,25 @@
 
             <!-- Footer -->
             @if (notificationService.visibleNotifications().length > 0) {
-                <div class="px-4 py-2 bg-gray-50 text-center">
-                    <span class="text-xs text-gray-400">
-                        Showing last {{ notificationService.visibleNotifications().length }} notifications
-                    </span>
+                <div class="px-4 py-2 bg-gray-50 text-center border-t border-gray-100">
+                    @if (notificationService.hasMoreNotifications()) {
+                        <button 
+                            (click)="loadMore($event)"
+                            [disabled]="notificationService.isLoadingMore()"
+                            class="text-sm text-amber-600 hover:text-amber-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full py-1">
+                            @if (notificationService.isLoadingMore()) {
+                                <span class="material-icons animate-spin text-base">refresh</span>
+                                <span>Loading...</span>
+                            } @else {
+                                <span class="material-icons text-base">expand_more</span>
+                                <span>Load more</span>
+                            }
+                        </button>
+                    } @else {
+                        <span class="text-xs text-gray-400">
+                            No more notifications
+                        </span>
+                    }
                 </div>
             }
         </div>
