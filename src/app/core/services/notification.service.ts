@@ -16,6 +16,7 @@ export class NotificationService implements OnDestroy {
     private isInitialLoad = true;
     private lastDoc: QueryDocumentSnapshot | null = null;
     private readonly PAGE_SIZE = 10;
+    private paginatedNotifications: Notification[] = []; // Stores notifications loaded via loadMore()
 
     // Signals
     notifications = signal<Notification[]>([]);
@@ -118,6 +119,7 @@ export class NotificationService implements OnDestroy {
             this.isInitialLoad = true;
             this.lastDoc = null;
             this.hasMoreNotifications.set(true);
+            this.paginatedNotifications = [];
 
             if (user) {
                 // Fetch first page of notifications
@@ -160,7 +162,12 @@ export class NotificationService implements OnDestroy {
                     notifications.forEach(n => this.seenNotificationIds.add(n.id));
                     this.isInitialLoad = false;
 
-                    this.notifications.set(notifications);
+                    // Merge first page with paginated notifications, avoiding duplicates
+                    const firstPageIds = new Set(notifications.map(n => n.id));
+                    const filteredPaginated = this.paginatedNotifications
+                        .filter(p => !firstPageIds.has(p.id));
+                    
+                    this.notifications.set([...notifications, ...filteredPaginated]);
                 }, (error) => {
                     console.error('Error loading notifications:', error);
                 });
@@ -206,6 +213,9 @@ export class NotificationService implements OnDestroy {
 
             // Add new notifications to seen set
             newNotifications.forEach(n => this.seenNotificationIds.add(n.id));
+
+            // Store in paginated array to preserve across snapshot updates
+            this.paginatedNotifications = [...this.paginatedNotifications, ...newNotifications];
 
             // Append new notifications to existing ones
             this.notifications.update(current => [...current, ...newNotifications]);
