@@ -6,6 +6,17 @@ import { CategoryService } from '../../core/services/category.service';
 import { UserService } from '../../core/services/user.service';
 import { Category, Transaction } from '../../core/models/models';
 
+interface PieSlice {
+    category: Category;
+    amount: number;
+    percentage: number;
+    startAngle: number;
+    endAngle: number;
+    path: string;
+    labelX: number;
+    labelY: number;
+}
+
 @Component({
     selector: 'app-analysis',
     standalone: true,
@@ -105,6 +116,67 @@ export class AnalysisComponent {
 
         return stats.sort((a, b) => b.amount - a.amount);
     });
+
+    // Pie chart slices for current month expenses
+    pieChartSlices = computed<PieSlice[]>(() => {
+        const stats = this.categoryStats();
+        if (stats.length === 0) return [];
+
+        const slices: PieSlice[] = [];
+        let currentAngle = -90; // Start at top
+
+        stats.forEach(stat => {
+            const angleSize = (stat.percentage / 100) * 360;
+            const startAngle = currentAngle;
+            const endAngle = currentAngle + angleSize;
+
+            // Calculate path for pie slice
+            const path = this.describeArc(100, 100, 80, startAngle, endAngle);
+            
+            // Calculate label position (middle of the arc)
+            const labelAngle = startAngle + angleSize / 2;
+            const labelRadius = 50; // Distance from center for label
+            const labelX = 100 + labelRadius * Math.cos((labelAngle * Math.PI) / 180);
+            const labelY = 100 + labelRadius * Math.sin((labelAngle * Math.PI) / 180);
+
+            slices.push({
+                category: stat.category,
+                amount: stat.amount,
+                percentage: stat.percentage,
+                startAngle,
+                endAngle,
+                path,
+                labelX,
+                labelY
+            });
+
+            currentAngle = endAngle;
+        });
+
+        return slices;
+    });
+
+    // Helper function to create SVG arc path
+    private describeArc(x: number, y: number, radius: number, startAngle: number, endAngle: number): string {
+        const start = this.polarToCartesian(x, y, radius, endAngle);
+        const end = this.polarToCartesian(x, y, radius, startAngle);
+        const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
+
+        return [
+            'M', x, y,
+            'L', start.x, start.y,
+            'A', radius, radius, 0, largeArcFlag, 0, end.x, end.y,
+            'Z'
+        ].join(' ');
+    }
+
+    private polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
+        const angleInRadians = (angleInDegrees * Math.PI) / 180.0;
+        return {
+            x: centerX + radius * Math.cos(angleInRadians),
+            y: centerY + radius * Math.sin(angleInRadians)
+        };
+    }
 
     // Re-use date navigation logic or just expose service methods if needed
     // For now, we'll bind directly to service signals in template or use simple wrappers

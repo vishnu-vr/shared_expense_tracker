@@ -37,7 +37,6 @@ export class UserService {
             // Build lookup map by user ID
             this.userMap.clear();
             users.forEach(user => {
-                debugger
                 if (user.id) {
                     this.userMap.set(user.id, user);
                 }
@@ -55,7 +54,6 @@ export class UserService {
     // Get user name by ID, with fallback
     getUserName(userId: string): string {
         const user = this.userMap.get(userId);
-        debugger
         return user?.name || this.formatUserId(userId);
     }
 

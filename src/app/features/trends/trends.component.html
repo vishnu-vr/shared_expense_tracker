@@ -1,0 +1,202 @@
+<div class="p-4 space-y-6 pb-20">
+    <!-- Header -->
+    <header class="flex items-center gap-4">
+        <button routerLink="/analysis" class="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
+            <span class="material-icons text-gray-600">arrow_back</span>
+        </button>
+        <div>
+            <h1 class="text-xl font-bold text-gray-800">Spending Trends</h1>
+            <p class="text-sm text-gray-500">Last 6 months analysis</p>
+        </div>
+    </header>
+
+    <!-- User Filter -->
+    @if (availableUsers().length > 1) {
+    <div class="relative">
+        <button (click)="toggleUserDropdown()"
+            class="w-full flex items-center justify-between bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-2">
+                <span class="material-icons text-gray-500">person</span>
+                <span class="text-gray-800 font-medium">{{ getSelectedUserName() }}</span>
+            </div>
+            <span class="material-icons text-gray-400 transition-transform"
+                [class.rotate-180]="showUserDropdown()">expand_more</span>
+        </button>
+
+        <!-- Dropdown -->
+        @if (showUserDropdown()) {
+        <div class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-30 overflow-hidden">
+            <button (click)="selectUser(null)"
+                class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                [class.bg-amber-50]="!selectedUserId()"
+                [class.text-amber-600]="!selectedUserId()">
+                <span class="material-icons">group</span>
+                <span class="font-medium">All Users</span>
+                @if (!selectedUserId()) {
+                <span class="material-icons ml-auto text-amber-600">check</span>
+                }
+            </button>
+            
+            <div class="border-t border-gray-100"></div>
+            
+            @for (user of availableUsers(); track user.id) {
+            <button (click)="selectUser(user.id)"
+                class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                [class.bg-amber-50]="selectedUserId() === user.id"
+                [class.text-amber-600]="selectedUserId() === user.id">
+                <span class="material-icons">person</span>
+                <span class="font-medium truncate">{{ user.name }}</span>
+                @if (selectedUserId() === user.id) {
+                <span class="material-icons ml-auto text-amber-600 flex-shrink-0">check</span>
+                }
+            </button>
+            }
+        </div>
+        }
+    </div>
+    }
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gradient-to-br from-amber-500 to-orange-500 p-4 rounded-xl text-white">
+            <p class="text-white/80 text-xs mb-1">6 Month Total</p>
+            <p class="text-xl font-bold">{{ totalExpense6Months() | currency:'INR':'symbol':'1.0-0' }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-blue-500 to-indigo-500 p-4 rounded-xl text-white">
+            <p class="text-white/80 text-xs mb-1">Monthly Average</p>
+            <p class="text-xl font-bold">{{ averageMonthlyExpense() | currency:'INR':'symbol':'1.0-0' }}</p>
+        </div>
+    </div>
+
+    <!-- Monthly Breakdown -->
+    <div class="space-y-4">
+        <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+            <span class="material-icons text-amber-500">trending_up</span>
+            Top 5 Categories Per Month
+        </h3>
+        
+        @for (month of last6MonthsTopSpending(); track month.month) {
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <!-- Month Header -->
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 flex justify-between items-center">
+                <div class="text-white">
+                    <span class="font-semibold">{{ month.monthLabel }}</span>
+                    <span class="text-white/80 text-sm ml-1">{{ month.year }}</span>
+                </div>
+                <div class="text-white font-bold">
+                    {{ month.totalExpense | currency:'INR':'symbol':'1.0-0' }}
+                </div>
+            </div>
+            
+            <!-- Top Items -->
+            @if (month.topItems.length > 0) {
+            <div class="divide-y divide-gray-50">
+                @for (item of month.topItems; track item.category.id; let i = $index) {
+                <div class="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                     (click)="selectCategory(item.category)">
+                    <!-- Rank -->
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                         [class.bg-amber-100]="i === 0"
+                         [class.text-amber-700]="i === 0"
+                         [class.bg-gray-100]="i > 0"
+                         [class.text-gray-600]="i > 0">
+                        {{ i + 1 }}
+                    </div>
+                    
+                    <!-- Category Icon -->
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                         [style.background-color]="item.category.color">
+                        <span class="material-icons text-sm">{{ item.category.icon }}</span>
+                    </div>
+                    
+                    <!-- Category Name & Bar -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-gray-800 truncate">{{ item.category.name }}</span>
+                            <span class="text-sm font-bold text-gray-800 ml-2">{{ item.amount | currency:'INR':'symbol':'1.0-0' }}</span>
+                        </div>
+                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all" 
+                                 [style.width.%]="item.percentage"
+                                 [style.background-color]="item.category.color">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <span class="material-icons text-gray-400 text-sm">chevron_right</span>
+                </div>
+                }
+            </div>
+            } @else {
+            <div class="px-4 py-6 text-center text-gray-400">
+                <span class="material-icons text-2xl mb-1">receipt_long</span>
+                <p class="text-sm">No expenses this month</p>
+            </div>
+            }
+        </div>
+        }
+    </div>
+</div>
+
+<!-- Category Detail Modal -->
+@if (selectedCategory()) {
+<div class="fixed inset-0 z-50 flex flex-col">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/50" (click)="closeDetail()"></div>
+    
+    <!-- Panel -->
+    <div class="relative mt-auto bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white rounded-t-3xl border-b border-gray-100 px-4 py-4 flex items-center gap-3">
+            <button (click)="closeDetail()" class="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors">
+                <span class="material-icons text-gray-600">close</span>
+            </button>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                [style.background-color]="selectedCategory()!.color">
+                <span class="material-icons">{{ selectedCategory()!.icon }}</span>
+            </div>
+            <div class="flex-1">
+                <h2 class="font-bold text-gray-800">{{ selectedCategory()!.name }}</h2>
+                <p class="text-sm text-gray-500">{{ categoryTransactions().length }} transactions (6 months)</p>
+            </div>
+        </div>
+
+        <!-- Transaction List -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            @for (t of categoryTransactions(); track t.id) {
+            <div (click)="editTransaction(t.id)"
+                class="flex items-center justify-between bg-gray-50 p-4 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors active:scale-[0.99]">
+                <div class="flex-1">
+                    <p class="font-medium text-gray-800">{{ t.date | date:'MMM d, y' }}</p>
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        @if (t.note) {
+                        <span>{{ t.note }}</span>
+                        }
+                    </div>
+                </div>
+                <div class="text-right flex items-center gap-2">
+                    <p class="font-bold text-red-600">-{{ t.amount | currency:'INR' }}</p>
+                    <span class="material-icons text-gray-400 text-sm">chevron_right</span>
+                </div>
+            </div>
+            } @empty {
+            <div class="text-center py-10 text-gray-400">
+                <span class="material-icons text-4xl mb-2">receipt_long</span>
+                <p>No transactions found</p>
+            </div>
+            }
+        </div>
+
+        <!-- Total Footer -->
+        <div class="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-4">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-600 font-medium">Total (6 months)</span>
+                <span class="text-xl font-bold text-red-600">
+                    -{{ categoryTotal() | currency:'INR' }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
