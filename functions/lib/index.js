@@ -258,7 +258,9 @@ Provide your answer:`,
     return text;
 });
 // Expose the flow as a Firebase callable function
-exports.analyzeTransactions = (0, https_1.onCall)(async (request) => {
+exports.analyzeTransactions = (0, https_1.onCall)({
+    cors: true, // Enable CORS for all origins
+}, async (request) => {
     const { question } = request.data;
     if (!question || typeof question !== 'string') {
         throw new Error('Invalid request: question is required');
@@ -267,7 +269,7 @@ exports.analyzeTransactions = (0, https_1.onCall)(async (request) => {
 });
 // Backfill Embeddings for existing transactions
 // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-exports.backfillEmbeddings = (0, https_1.onCall)(async () => {
+exports.backfillEmbeddings = (0, https_1.onCall)({ cors: true }, async () => {
     const firestore = (0, firestore_2.getFirestore)();
     const collection = firestore.collection("transactions");
     // Get all transactions without embeddings

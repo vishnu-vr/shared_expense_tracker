@@ -279,17 +279,22 @@ Provide your answer:`,
 );
 
 // Expose the flow as a Firebase callable function
-export const analyzeTransactions = onCall(async (request) => {
-    const { question } = request.data;
-    if (!question || typeof question !== 'string') {
-        throw new Error('Invalid request: question is required');
+export const analyzeTransactions = onCall(
+    {
+        cors: true, // Enable CORS for all origins
+    },
+    async (request) => {
+        const { question } = request.data;
+        if (!question || typeof question !== 'string') {
+            throw new Error('Invalid request: question is required');
+        }
+        return await analyzeTransactionsFlow({ question });
     }
-    return await analyzeTransactionsFlow({ question });
-});
+);
 
 // Backfill Embeddings for existing transactions
 // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-export const backfillEmbeddings = onCall(async () => {
+export const backfillEmbeddings = onCall({ cors: true }, async () => {
     const firestore = getFirestore();
     const collection = firestore.collection("transactions");
 
