@@ -283,11 +283,7 @@ const analyzeTransactionsHandler = async (request) => {
         throw new https_1.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
     // 3. Email Allowlist Check
-    const ALLOWED_EMAILS = [
-        'vishnuramesh52@gmail.com',
-        'vishnutest@rckr.com',
-        'shrutimnair243@gmail.com'
-    ];
+    const ALLOWED_EMAILS = [];
     if (!email || !ALLOWED_EMAILS.includes(email)) {
         logger.warn(`Permission denied for user ${uid} with email ${email}`);
         throw new https_1.HttpsError('permission-denied', `User ${email} is not authorized to use this feature.`);
