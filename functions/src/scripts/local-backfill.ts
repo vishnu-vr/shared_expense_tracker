@@ -3,6 +3,7 @@ import { initializeApp } from "firebase-admin/app";
 // Set project ID explicitly for local execution
 process.env.GCLOUD_PROJECT = "expense-tracker-e7ff7";
 process.env.GOOGLE_CLOUD_PROJECT = "expense-tracker-e7ff7";
+process.env.GOOGLE_APPLICATION_CREDENTIALS = "./service-account.json";
 
 // Initialize Admin SDK
 initializeApp({
