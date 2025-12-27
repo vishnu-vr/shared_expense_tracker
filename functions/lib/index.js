@@ -31,7 +31,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.backfillEmbeddings = exports.analyzeTransactions = exports.analyzeTransactionsHandler = exports.onTransactionCreated = void 0;
+exports.analyzeTransactions = exports.analyzeTransactionsHandler = exports.onTransactionCreated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -283,8 +283,12 @@ const analyzeTransactionsHandler = async (request) => {
         throw new https_1.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
     // 3. Email Allowlist Check
-    const ALLOWED_EMAIL = 'vishnuramesh52@gmail.com';
-    if (email !== ALLOWED_EMAIL) {
+    const ALLOWED_EMAILS = [
+        'vishnuramesh52@gmail.com',
+        'vishnutest@rckr.com',
+        'shrutimnair243@gmail.com'
+    ];
+    if (!email || !ALLOWED_EMAILS.includes(email)) {
         logger.warn(`Permission denied for user ${uid} with email ${email}`);
         throw new https_1.HttpsError('permission-denied', `User ${email} is not authorized to use this feature.`);
     }
@@ -298,44 +302,43 @@ const analyzeTransactionsHandler = async (request) => {
 exports.analyzeTransactionsHandler = analyzeTransactionsHandler;
 // Expose the flow as a Firebase callable function
 exports.analyzeTransactions = (0, https_1.onCall)(exports.analyzeTransactionsHandler);
-// Backfill Embeddings for existing transactions
-// Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-exports.backfillEmbeddings = (0, https_1.onCall)(async () => {
-    const firestore = (0, firestore_2.getFirestore)();
-    const collection = firestore.collection("transactions");
-    // Get all transactions without embeddings
-    // Note: 'embedding' equality check might not be efficient or possible depending on index,
-    // so we iterate all and check. For large datasets, use cursor/pagination.
-    const snapshot = await collection.get();
-    let processedCount = 0;
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-        // Skip if already has embedding
-        // Note: Check if field valid vector or array
-        if (data.embedding) {
-            continue;
-        }
-        const { note, amount, categoryId } = data;
-        // Skip if not enough info
-        if (!note && !amount) {
-            continue;
-        }
-        try {
-            const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
-            const embedding = await ai.embed({
-                embedder: google_genai_1.vertexAI.embedder('text-embedding-004'),
-                content: textToEmbed,
-            });
-            await doc.ref.update({
-                embedding: firestore_2.FieldValue.vector(embedding[0].embedding),
-            });
-            processedCount++;
-            logger.info(`Backfilled embedding for ${doc.id}`);
-        }
-        catch (error) {
-            logger.error(`Error backfilling ${doc.id}`, error);
-        }
-    }
-    return { success: true, processed: processedCount };
-});
+// // Backfill Embeddings for existing transactions
+// // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
+// export const backfillEmbeddings = onCall(async () => {
+//     const firestore = getFirestore();
+//     const collection = firestore.collection("transactions");
+//     // Get all transactions without embeddings
+//     // Note: 'embedding' equality check might not be efficient or possible depending on index,
+//     // so we iterate all and check. For large datasets, use cursor/pagination.
+//     const snapshot = await collection.get();
+//     let processedCount = 0;
+//     for (const doc of snapshot.docs) {
+//         const data = doc.data();
+//         // Skip if already has embedding
+//         // Note: Check if field valid vector or array
+//         if (data.embedding) {
+//             continue;
+//         }
+//         const { note, amount, categoryId } = data;
+//         // Skip if not enough info
+//         if (!note && !amount) {
+//             continue;
+//         }
+//         try {
+//             const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
+//             const embedding = await ai.embed({
+//                 embedder: vertexAI.embedder('text-embedding-004'),
+//                 content: textToEmbed,
+//             });
+//             await doc.ref.update({
+//                 embedding: FieldValue.vector(embedding[0].embedding),
+//             });
+//             processedCount++;
+//             logger.info(`Backfilled embedding for ${doc.id}`);
+//         } catch (error) {
+//             logger.error(`Error backfilling ${doc.id}`, error);
+//         }
+//     }
+//     return { success: true, processed: processedCount };
+// });
 //# sourceMappingURL=index.js.map

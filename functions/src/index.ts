@@ -305,8 +305,13 @@ export const analyzeTransactionsHandler = async (request: any) => {
     }
 
     // 3. Email Allowlist Check
-    const ALLOWED_EMAIL = 'vishnuramesh52@gmail.com';
-    if (email !== ALLOWED_EMAIL) {
+    const ALLOWED_EMAILS = [
+        'vishnuramesh52@gmail.com',
+        'vishnutest@rckr.com',
+        'shrutimnair243@gmail.com'
+    ];
+
+    if (!email || !ALLOWED_EMAILS.includes(email)) {
         logger.warn(`Permission denied for user ${uid} with email ${email}`);
         throw new HttpsError('permission-denied', `User ${email} is not authorized to use this feature.`);
     }
