@@ -323,53 +323,53 @@ export const analyzeTransactionsHandler = async (request: any) => {
 // Expose the flow as a Firebase callable function
 export const analyzeTransactions = onCall(analyzeTransactionsHandler);
 
-// Backfill Embeddings for existing transactions
-// Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-export const backfillEmbeddings = onCall(async () => {
-    const firestore = getFirestore();
-    const collection = firestore.collection("transactions");
+// // Backfill Embeddings for existing transactions
+// // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
+// export const backfillEmbeddings = onCall(async () => {
+//     const firestore = getFirestore();
+//     const collection = firestore.collection("transactions");
 
-    // Get all transactions without embeddings
-    // Note: 'embedding' equality check might not be efficient or possible depending on index,
-    // so we iterate all and check. For large datasets, use cursor/pagination.
-    const snapshot = await collection.get();
+//     // Get all transactions without embeddings
+//     // Note: 'embedding' equality check might not be efficient or possible depending on index,
+//     // so we iterate all and check. For large datasets, use cursor/pagination.
+//     const snapshot = await collection.get();
 
-    let processedCount = 0;
+//     let processedCount = 0;
 
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
+//     for (const doc of snapshot.docs) {
+//         const data = doc.data();
 
-        // Skip if already has embedding
-        // Note: Check if field valid vector or array
-        if (data.embedding) {
-            continue;
-        }
+//         // Skip if already has embedding
+//         // Note: Check if field valid vector or array
+//         if (data.embedding) {
+//             continue;
+//         }
 
-        const { note, amount, categoryId } = data;
+//         const { note, amount, categoryId } = data;
 
-        // Skip if not enough info
-        if (!note && !amount) {
-            continue;
-        }
+//         // Skip if not enough info
+//         if (!note && !amount) {
+//             continue;
+//         }
 
-        try {
-            const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
-            const embedding = await ai.embed({
-                embedder: vertexAI.embedder('text-embedding-004'),
-                content: textToEmbed,
-            });
+//         try {
+//             const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
+//             const embedding = await ai.embed({
+//                 embedder: vertexAI.embedder('text-embedding-004'),
+//                 content: textToEmbed,
+//             });
 
-            await doc.ref.update({
-                embedding: FieldValue.vector(embedding[0].embedding),
-            });
+//             await doc.ref.update({
+//                 embedding: FieldValue.vector(embedding[0].embedding),
+//             });
 
-            processedCount++;
-            logger.info(`Backfilled embedding for ${doc.id}`);
+//             processedCount++;
+//             logger.info(`Backfilled embedding for ${doc.id}`);
 
-        } catch (error) {
-            logger.error(`Error backfilling ${doc.id}`, error);
-        }
-    }
+//         } catch (error) {
+//             logger.error(`Error backfilling ${doc.id}`, error);
+//         }
+//     }
 
-    return { success: true, processed: processedCount };
-});
+//     return { success: true, processed: processedCount };
+// });
