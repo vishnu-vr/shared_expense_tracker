@@ -122,7 +122,7 @@ const analyzeTransactionsFlow = ai.defineFlow(
 
         // Generate answer
         const { text } = await ai.generate({
-            model: vertexAI.model('gemini-1.5-flash'),
+            model: vertexAI.model('gemini-2.0-flash'),
             prompt: `
         You are a helpful financial assistant.
         Answer the user's question based ONLY on the following transactions.
