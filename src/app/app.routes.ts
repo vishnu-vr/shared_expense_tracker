@@ -34,6 +34,11 @@ export const routes: Routes = [
         canActivate: [authGuard]
     },
     {
+        path: 'ask-ai',
+        loadComponent: () => import('./features/ask-ai/ask-ai.component').then(m => m.AskAiComponent),
+        canActivate: [authGuard]
+    },
+    {
         path: 'trends',
         loadComponent: () => import('./features/trends/trends.component').then(m => m.TrendsComponent),
         canActivate: [authGuard]
