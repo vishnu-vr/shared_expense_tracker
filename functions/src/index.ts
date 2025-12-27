@@ -323,8 +323,8 @@ export const analyzeTransactionsHandler = async (request: any) => {
 // Expose the flow as a Firebase callable function
 export const analyzeTransactions = onCall(analyzeTransactionsHandler);
 
-// Backfill Embeddings for existing transactions
-// Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-export const backfillEmbeddings = onCall(async () => {
-    return await backfillEmbeddingsHandler();
-});
+// // Backfill Embeddings for existing transactions
+// // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
+// export const backfillEmbeddings = onCall(async () => {
+//     return await backfillEmbeddingsHandler();
+// });
