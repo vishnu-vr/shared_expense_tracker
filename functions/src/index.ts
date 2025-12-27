@@ -8,12 +8,13 @@
  */
 
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { genkit, z } from "genkit";
 import { vertexAI } from "@genkit-ai/google-genai";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 
 initializeApp();
 
@@ -65,7 +66,7 @@ const TransactionQuerySchema = z.object({
 // Helper to format date for display
 function formatDate(dateValue: any): string {
     if (!dateValue) return 'Unknown';
-    
+
     // Handle Firestore Timestamp
     if (dateValue.toDate) {
         return dateValue.toDate().toISOString().split('T')[0];
@@ -86,7 +87,7 @@ async function getTransactionsForPeriod(startDate: Date, endDate: Date): Promise
         .where("date", "<=", endDate.toISOString())
         .orderBy("date", "desc")
         .get();
-    
+
     return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -101,7 +102,7 @@ async function getRecentTransactions(limit: number = 200): Promise<any[]> {
         .orderBy("date", "desc")
         .limit(limit)
         .get();
-    
+
     return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -111,26 +112,26 @@ async function getRecentTransactions(limit: number = 200): Promise<any[]> {
 // Parse time period from question
 function getDateRangeFromQuestion(question: string, now: Date): { start: Date; end: Date } | null {
     const q = question.toLowerCase();
-    
+
     if (q.includes('last month')) {
         const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
         return { start, end };
     }
-    
+
     if (q.includes('this month')) {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         return { start, end };
     }
-    
+
     if (q.includes('last week')) {
         const start = new Date(now);
         start.setDate(now.getDate() - 7);
         start.setHours(0, 0, 0, 0);
         return { start, end: now };
     }
-    
+
     if (q.includes('this week')) {
         const dayOfWeek = now.getDay();
         const start = new Date(now);
@@ -138,7 +139,7 @@ function getDateRangeFromQuestion(question: string, now: Date): { start: Date; e
         start.setHours(0, 0, 0, 0);
         return { start, end: now };
     }
-    
+
     if (q.includes('yesterday')) {
         const start = new Date(now);
         start.setDate(now.getDate() - 1);
@@ -147,13 +148,13 @@ function getDateRangeFromQuestion(question: string, now: Date): { start: Date; e
         end.setHours(23, 59, 59);
         return { start, end };
     }
-    
+
     if (q.includes('today')) {
         const start = new Date(now);
         start.setHours(0, 0, 0, 0);
         return { start, end: now };
     }
-    
+
     return null;
 }
 
@@ -206,18 +207,18 @@ const analyzeTransactionsFlow = ai.defineFlow(
         const now = new Date();
         const currentDate = now.toISOString().split('T')[0];
         const currentMonth = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        
+
         // Calculate last month
         const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastMonthName = lastMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        
+
         // Detect if this is a time-based query and get date range
         const dateRange = getDateRangeFromQuestion(question, now);
         const timeKeywords = ['last month', 'this month', 'yesterday', 'today', 'last week', 'this week', 'recent', 'lately'];
         const isTimeQuery = timeKeywords.some(kw => question.toLowerCase().includes(kw));
-        
+
         let transactionsContext = '';
-        
+
         if (dateRange) {
             // For specific time periods, query with date filter
             logger.info(`Querying transactions from ${dateRange.start.toISOString()} to ${dateRange.end.toISOString()}`);
@@ -226,7 +227,7 @@ const analyzeTransactionsFlow = ai.defineFlow(
             transactionsContext = periodTxns
                 .map(t => `Date: ${formatDate(t.date)}, Amount: ${t.amount}, Category: ${t.categoryId}, Note: ${t.note || 'N/A'}`)
                 .join('\n');
-                
+
             if (periodTxns.length === 0) {
                 transactionsContext = 'No transactions found for this time period.';
             }
@@ -278,62 +279,97 @@ Provide your answer:`,
     }
 );
 
-// Expose the flow as a Firebase callable function
-export const analyzeTransactions = onCall(async (request) => {
+// Logic handler exported for testing
+export const analyzeTransactionsHandler = async (request: any) => {
+    // 1. Check if authenticated via standard Firebase SDK
+    let uid = request.auth?.uid;
+    let email = request.auth?.token?.email;
+
+    // 2. If not, check for Authorization header manually (fallback)
+    if (!uid) {
+        const authHeader = request.rawRequest?.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split('Bearer ')[1];
+            try {
+                const decodedToken = await getAuth().verifyIdToken(token);
+                uid = decodedToken.uid;
+                email = decodedToken.email;
+            } catch (e) {
+                logger.warn("Failed to verify token from header", e);
+            }
+        }
+    }
+
+    if (!uid) {
+        throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    // 3. Email Allowlist Check
+    const ALLOWED_EMAIL = 'vishnuramesh52@gmail.com';
+    if (email !== ALLOWED_EMAIL) {
+        logger.warn(`Permission denied for user ${uid} with email ${email}`);
+        throw new HttpsError('permission-denied', `User ${email} is not authorized to use this feature.`);
+    }
+
+    logger.info(`AnalyzeTransactions called by user: ${uid} (${email})`);
+
     const { question } = request.data;
     if (!question || typeof question !== 'string') {
-        throw new Error('Invalid request: question is required');
+        throw new HttpsError('invalid-argument', 'The function must be called with a "question" argument.');
     }
     return await analyzeTransactionsFlow({ question });
-});
+};
 
-// Backfill Embeddings for existing transactions
-// Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-export const backfillEmbeddings = onCall(async () => {
-    const firestore = getFirestore();
-    const collection = firestore.collection("transactions");
+// Expose the flow as a Firebase callable function
+export const analyzeTransactions = onCall(analyzeTransactionsHandler);
 
-    // Get all transactions without embeddings
-    // Note: 'embedding' equality check might not be efficient or possible depending on index,
-    // so we iterate all and check. For large datasets, use cursor/pagination.
-    const snapshot = await collection.get();
+// // Backfill Embeddings for existing transactions
+// // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
+// export const backfillEmbeddings = onCall(async () => {
+//     const firestore = getFirestore();
+//     const collection = firestore.collection("transactions");
 
-    let processedCount = 0;
+//     // Get all transactions without embeddings
+//     // Note: 'embedding' equality check might not be efficient or possible depending on index,
+//     // so we iterate all and check. For large datasets, use cursor/pagination.
+//     const snapshot = await collection.get();
 
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
+//     let processedCount = 0;
 
-        // Skip if already has embedding
-        // Note: Check if field valid vector or array
-        if (data.embedding) {
-            continue;
-        }
+//     for (const doc of snapshot.docs) {
+//         const data = doc.data();
 
-        const { note, amount, categoryId } = data;
+//         // Skip if already has embedding
+//         // Note: Check if field valid vector or array
+//         if (data.embedding) {
+//             continue;
+//         }
 
-        // Skip if not enough info
-        if (!note && !amount) {
-            continue;
-        }
+//         const { note, amount, categoryId } = data;
 
-        try {
-            const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
-            const embedding = await ai.embed({
-                embedder: vertexAI.embedder('text-embedding-004'),
-                content: textToEmbed,
-            });
+//         // Skip if not enough info
+//         if (!note && !amount) {
+//             continue;
+//         }
 
-            await doc.ref.update({
-                embedding: FieldValue.vector(embedding[0].embedding),
-            });
+//         try {
+//             const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
+//             const embedding = await ai.embed({
+//                 embedder: vertexAI.embedder('text-embedding-004'),
+//                 content: textToEmbed,
+//             });
 
-            processedCount++;
-            logger.info(`Backfilled embedding for ${doc.id}`);
+//             await doc.ref.update({
+//                 embedding: FieldValue.vector(embedding[0].embedding),
+//             });
 
-        } catch (error) {
-            logger.error(`Error backfilling ${doc.id}`, error);
-        }
-    }
+//             processedCount++;
+//             logger.info(`Backfilled embedding for ${doc.id}`);
 
-    return { success: true, processed: processedCount };
-});
+//         } catch (error) {
+//             logger.error(`Error backfilling ${doc.id}`, error);
+//         }
+//     }
+
+//     return { success: true, processed: processedCount };
+// });

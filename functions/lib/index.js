@@ -31,7 +31,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.backfillEmbeddings = exports.analyzeTransactions = exports.onTransactionCreated = void 0;
+exports.backfillEmbeddings = exports.analyzeTransactions = exports.analyzeTransactionsHandler = exports.onTransactionCreated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -39,6 +39,7 @@ const genkit_1 = require("genkit");
 const google_genai_1 = require("@genkit-ai/google-genai");
 const firestore_2 = require("firebase-admin/firestore");
 const app_1 = require("firebase-admin/app");
+const auth_1 = require("firebase-admin/auth");
 (0, app_1.initializeApp)();
 const ai = (0, genkit_1.genkit)({
     plugins: [(0, google_genai_1.vertexAI)({ location: 'us-central1' })],
@@ -257,14 +258,46 @@ Provide your answer:`,
     });
     return text;
 });
-// Expose the flow as a Firebase callable function
-exports.analyzeTransactions = (0, https_1.onCall)(async (request) => {
+// Logic handler exported for testing
+const analyzeTransactionsHandler = async (request) => {
+    var _a, _b, _c, _d;
+    // 1. Check if authenticated via standard Firebase SDK
+    let uid = (_a = request.auth) === null || _a === void 0 ? void 0 : _a.uid;
+    let email = (_c = (_b = request.auth) === null || _b === void 0 ? void 0 : _b.token) === null || _c === void 0 ? void 0 : _c.email;
+    // 2. If not, check for Authorization header manually (fallback)
+    if (!uid) {
+        const authHeader = (_d = request.rawRequest) === null || _d === void 0 ? void 0 : _d.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split('Bearer ')[1];
+            try {
+                const decodedToken = await (0, auth_1.getAuth)().verifyIdToken(token);
+                uid = decodedToken.uid;
+                email = decodedToken.email;
+            }
+            catch (e) {
+                logger.warn("Failed to verify token from header", e);
+            }
+        }
+    }
+    if (!uid) {
+        throw new https_1.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    // 3. Email Allowlist Check
+    const ALLOWED_EMAIL = 'vishnuramesh52@gmail.com';
+    if (email !== ALLOWED_EMAIL) {
+        logger.warn(`Permission denied for user ${uid} with email ${email}`);
+        throw new https_1.HttpsError('permission-denied', `User ${email} is not authorized to use this feature.`);
+    }
+    logger.info(`AnalyzeTransactions called by user: ${uid} (${email})`);
     const { question } = request.data;
     if (!question || typeof question !== 'string') {
-        throw new Error('Invalid request: question is required');
+        throw new https_1.HttpsError('invalid-argument', 'The function must be called with a "question" argument.');
     }
     return await analyzeTransactionsFlow({ question });
-});
+};
+exports.analyzeTransactionsHandler = analyzeTransactionsHandler;
+// Expose the flow as a Firebase callable function
+exports.analyzeTransactions = (0, https_1.onCall)(exports.analyzeTransactionsHandler);
 // Backfill Embeddings for existing transactions
 // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
 exports.backfillEmbeddings = (0, https_1.onCall)(async () => {
