@@ -10,7 +10,7 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
-import { genkit, z } from "genkit";
+import { z } from "genkit";
 import { vertexAI } from "@genkit-ai/google-genai";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { initializeApp } from "firebase-admin/app";
@@ -18,9 +18,8 @@ import { getAuth } from "firebase-admin/auth";
 
 initializeApp();
 
-const ai = genkit({
-    plugins: [vertexAI({ location: 'us-central1' })],
-});
+import { ai } from "./genkit";
+import { backfillEmbeddingsHandler } from "./backfill";
 
 export const onTransactionCreated = onDocumentCreated("transactions/{docId}", async (event) => {
     const snapshot = event.data;
@@ -327,50 +326,5 @@ export const analyzeTransactions = onCall(analyzeTransactionsHandler);
 // Backfill Embeddings for existing transactions
 // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
 export const backfillEmbeddings = onCall(async () => {
-    const firestore = getFirestore();
-    const collection = firestore.collection("transactions");
-
-    // Get all transactions without embeddings
-    // Note: 'embedding' equality check might not be efficient or possible depending on index,
-    // so we iterate all and check. For large datasets, use cursor/pagination.
-    const snapshot = await collection.get();
-
-    let processedCount = 0;
-
-    for (const doc of snapshot.docs) {
-        const data = doc.data();
-
-        // Skip if already has embedding
-        // Note: Check if field valid vector or array
-        if (data.embedding) {
-            continue;
-        }
-
-        const { note, amount, categoryId } = data;
-
-        // Skip if not enough info
-        if (!note && !amount) {
-            continue;
-        }
-
-        try {
-            const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
-            const embedding = await ai.embed({
-                embedder: vertexAI.embedder('text-embedding-004'),
-                content: textToEmbed,
-            });
-
-            await doc.ref.update({
-                embedding: FieldValue.vector(embedding[0].embedding),
-            });
-
-            processedCount++;
-            logger.info(`Backfilled embedding for ${doc.id}`);
-
-        } catch (error) {
-            logger.error(`Error backfilling ${doc.id}`, error);
-        }
-    }
-
-    return { success: true, processed: processedCount };
+    return await backfillEmbeddingsHandler();
 });
