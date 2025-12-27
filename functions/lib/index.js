@@ -31,7 +31,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.analyzeTransactions = exports.analyzeTransactionsHandler = exports.onTransactionCreated = void 0;
+exports.backfillEmbeddings = exports.analyzeTransactions = exports.analyzeTransactionsHandler = exports.onTransactionCreated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -41,9 +41,8 @@ const firestore_2 = require("firebase-admin/firestore");
 const app_1 = require("firebase-admin/app");
 const auth_1 = require("firebase-admin/auth");
 (0, app_1.initializeApp)();
-const ai = (0, genkit_1.genkit)({
-    plugins: [(0, google_genai_1.vertexAI)({ location: 'us-central1' })],
-});
+const genkit_2 = require("./genkit");
+const backfill_1 = require("./backfill");
 exports.onTransactionCreated = (0, firestore_1.onDocumentCreated)("transactions/{docId}", async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -59,7 +58,7 @@ exports.onTransactionCreated = (0, firestore_1.onDocumentCreated)("transactions/
         // 1. Generate Embeddings for Semantic Search
         // Combine fields for a richer context, but prioritize 'note'
         const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
-        const embedding = await ai.embed({
+        const embedding = await genkit_2.ai.embed({
             embedder: google_genai_1.vertexAI.embedder('text-embedding-004'),
             content: textToEmbed,
         });
@@ -155,10 +154,10 @@ function getDateRangeFromQuestion(question, now) {
     return null;
 }
 // Define the retriever for semantic search
-const transactionRetriever = ai.defineRetriever({
+const transactionRetriever = genkit_2.ai.defineRetriever({
     name: "transactionRetriever",
 }, async (content) => {
-    const embedding = await ai.embed({
+    const embedding = await genkit_2.ai.embed({
         embedder: google_genai_1.vertexAI.embedder('text-embedding-004'),
         content: content.text,
     });
@@ -184,7 +183,7 @@ const transactionRetriever = ai.defineRetriever({
     };
 });
 // Define the Flow using Genkit 1.x API
-const analyzeTransactionsFlow = ai.defineFlow({
+const analyzeTransactionsFlow = genkit_2.ai.defineFlow({
     name: "analyzeTransactions",
     inputSchema: TransactionQuerySchema,
     outputSchema: genkit_1.z.string(),
@@ -222,7 +221,7 @@ const analyzeTransactionsFlow = ai.defineFlow({
     }
     else {
         // For semantic queries, use vector search
-        const docs = await ai.retrieve({
+        const docs = await genkit_2.ai.retrieve({
             retriever: transactionRetriever,
             query: question,
         });
@@ -231,7 +230,7 @@ const analyzeTransactionsFlow = ai.defineFlow({
             .join('\n');
     }
     // Generate answer with improved prompt
-    const { text } = await ai.generate({
+    const { text } = await genkit_2.ai.generate({
         model: google_genai_1.vertexAI.model('gemini-2.0-flash'),
         prompt: `You are a helpful and friendly financial assistant analyzing personal expense data.
 
@@ -298,43 +297,9 @@ const analyzeTransactionsHandler = async (request) => {
 exports.analyzeTransactionsHandler = analyzeTransactionsHandler;
 // Expose the flow as a Firebase callable function
 exports.analyzeTransactions = (0, https_1.onCall)(exports.analyzeTransactionsHandler);
-// // Backfill Embeddings for existing transactions
-// // Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
-// export const backfillEmbeddings = onCall(async () => {
-//     const firestore = getFirestore();
-//     const collection = firestore.collection("transactions");
-//     // Get all transactions without embeddings
-//     // Note: 'embedding' equality check might not be efficient or possible depending on index,
-//     // so we iterate all and check. For large datasets, use cursor/pagination.
-//     const snapshot = await collection.get();
-//     let processedCount = 0;
-//     for (const doc of snapshot.docs) {
-//         const data = doc.data();
-//         // Skip if already has embedding
-//         // Note: Check if field valid vector or array
-//         if (data.embedding) {
-//             continue;
-//         }
-//         const { note, amount, categoryId } = data;
-//         // Skip if not enough info
-//         if (!note && !amount) {
-//             continue;
-//         }
-//         try {
-//             const textToEmbed = `${note || ''} ${categoryId || ''} ${amount || ''}`;
-//             const embedding = await ai.embed({
-//                 embedder: vertexAI.embedder('text-embedding-004'),
-//                 content: textToEmbed,
-//             });
-//             await doc.ref.update({
-//                 embedding: FieldValue.vector(embedding[0].embedding),
-//             });
-//             processedCount++;
-//             logger.info(`Backfilled embedding for ${doc.id}`);
-//         } catch (error) {
-//             logger.error(`Error backfilling ${doc.id}`, error);
-//         }
-//     }
-//     return { success: true, processed: processedCount };
-// });
+// Backfill Embeddings for existing transactions
+// Call via: firebase functions:shell -> backfillEmbeddings({}) or via client SDK
+exports.backfillEmbeddings = (0, https_1.onCall)(async () => {
+    return await (0, backfill_1.backfillEmbeddingsHandler)();
+});
 //# sourceMappingURL=index.js.map

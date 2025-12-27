@@ -8,7 +8,8 @@
         "shell": "npm run build && firebase functions:shell",
         "start": "npm run shell",
         "deploy": "firebase deploy --only functions",
-        "logs": "firebase functions:log"
+        "logs": "firebase functions:log",
+        "local:backfill": "ts-node src/scripts/local-backfill.ts"
     },
     "engines": {
         "node": "20"
