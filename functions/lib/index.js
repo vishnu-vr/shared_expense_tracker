@@ -91,8 +91,19 @@ function formatDate(dateValue) {
     }
     return String(dateValue);
 }
-// Fetch recent transactions for time-based queries
-async function getRecentTransactions(limit = 50) {
+// Fetch transactions for a specific time period
+async function getTransactionsForPeriod(startDate, endDate) {
+    const firestore = (0, firestore_2.getFirestore)();
+    const snapshot = await firestore
+        .collection("transactions")
+        .where("date", ">=", startDate.toISOString())
+        .where("date", "<=", endDate.toISOString())
+        .orderBy("date", "desc")
+        .get();
+    return snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+}
+// Fetch recent transactions (fallback)
+async function getRecentTransactions(limit = 200) {
     const firestore = (0, firestore_2.getFirestore)();
     const snapshot = await firestore
         .collection("transactions")
@@ -100,6 +111,47 @@ async function getRecentTransactions(limit = 50) {
         .limit(limit)
         .get();
     return snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+}
+// Parse time period from question
+function getDateRangeFromQuestion(question, now) {
+    const q = question.toLowerCase();
+    if (q.includes('last month')) {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        return { start, end };
+    }
+    if (q.includes('this month')) {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        return { start, end };
+    }
+    if (q.includes('last week')) {
+        const start = new Date(now);
+        start.setDate(now.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+        return { start, end: now };
+    }
+    if (q.includes('this week')) {
+        const dayOfWeek = now.getDay();
+        const start = new Date(now);
+        start.setDate(now.getDate() - dayOfWeek);
+        start.setHours(0, 0, 0, 0);
+        return { start, end: now };
+    }
+    if (q.includes('yesterday')) {
+        const start = new Date(now);
+        start.setDate(now.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setHours(23, 59, 59);
+        return { start, end };
+    }
+    if (q.includes('today')) {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        return { start, end: now };
+    }
+    return null;
 }
 // Define the retriever for semantic search
 const transactionRetriever = ai.defineRetriever({
@@ -143,13 +195,26 @@ const analyzeTransactionsFlow = ai.defineFlow({
     // Calculate last month
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthName = lastMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    // Detect if this is a time-based query
+    // Detect if this is a time-based query and get date range
+    const dateRange = getDateRangeFromQuestion(question, now);
     const timeKeywords = ['last month', 'this month', 'yesterday', 'today', 'last week', 'this week', 'recent', 'lately'];
     const isTimeQuery = timeKeywords.some(kw => question.toLowerCase().includes(kw));
     let transactionsContext = '';
-    if (isTimeQuery) {
-        // For time-based queries, get recent transactions sorted by date
-        const recentTxns = await getRecentTransactions(100);
+    if (dateRange) {
+        // For specific time periods, query with date filter
+        logger.info(`Querying transactions from ${dateRange.start.toISOString()} to ${dateRange.end.toISOString()}`);
+        const periodTxns = await getTransactionsForPeriod(dateRange.start, dateRange.end);
+        logger.info(`Found ${periodTxns.length} transactions in period`);
+        transactionsContext = periodTxns
+            .map(t => `Date: ${formatDate(t.date)}, Amount: ${t.amount}, Category: ${t.categoryId}, Note: ${t.note || 'N/A'}`)
+            .join('\n');
+        if (periodTxns.length === 0) {
+            transactionsContext = 'No transactions found for this time period.';
+        }
+    }
+    else if (isTimeQuery) {
+        // For general time queries, get recent transactions
+        const recentTxns = await getRecentTransactions(200);
         transactionsContext = recentTxns
             .map(t => `Date: ${formatDate(t.date)}, Amount: ${t.amount}, Category: ${t.categoryId}, Note: ${t.note || 'N/A'}`)
             .join('\n');

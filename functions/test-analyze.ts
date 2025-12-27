@@ -75,16 +75,64 @@ async function main() {
         console.log(`📅 Current month: ${currentMonth}`);
         console.log(`📅 Last month: ${lastMonthName}\n`);
         
-        // Detect time-based query
+        // Parse date range from question
+        function getDateRange(q: string): { start: Date; end: Date } | null {
+            const lq = q.toLowerCase();
+            if (lq.includes('last month')) {
+                const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+                return { start, end };
+            }
+            if (lq.includes('this month')) {
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                return { start, end };
+            }
+            if (lq.includes('last week')) {
+                const start = new Date(now);
+                start.setDate(now.getDate() - 7);
+                start.setHours(0, 0, 0, 0);
+                return { start, end: now };
+            }
+            return null;
+        }
+        
+        const dateRange = getDateRange(question);
         const timeKeywords = ['last month', 'this month', 'yesterday', 'today', 'last week', 'this week', 'recent', 'lately'];
         const isTimeQuery = timeKeywords.some(kw => question.toLowerCase().includes(kw));
         
         let transactionsContext = '';
         const collection = firestore.collection('transactions');
         
-        if (isTimeQuery) {
-            console.log('🕐 Time-based query detected - fetching recent transactions...');
-            const recentSnapshot = await collection.orderBy('date', 'desc').limit(100).get();
+        if (dateRange) {
+            console.log(`🕐 Time-based query detected - fetching transactions for specific period...`);
+            console.log(`   Date range: ${dateRange.start.toISOString().split('T')[0]} to ${dateRange.end.toISOString().split('T')[0]}`);
+            
+            const periodSnapshot = await collection
+                .where('date', '>=', dateRange.start.toISOString())
+                .where('date', '<=', dateRange.end.toISOString())
+                .orderBy('date', 'desc')
+                .get();
+            
+            console.log(`   ✅ Found ${periodSnapshot.size} transactions in this period\n`);
+            
+            console.log('📋 Period transactions:');
+            console.log('─'.repeat(60));
+            
+            transactionsContext = periodSnapshot.docs.map((doc, i) => {
+                const data = doc.data();
+                const dateStr = data.date?.toDate ? data.date.toDate().toISOString().split('T')[0] : 
+                               (typeof data.date === 'string' ? new Date(data.date).toISOString().split('T')[0] : 'N/A');
+                const line = `Date: ${dateStr}, Amount: ${data.amount || 'N/A'}, Category: ${data.categoryId || 'N/A'}, Note: ${data.note || 'N/A'}`;
+                if (i < 15) console.log(line);
+                return line;
+            }).join('\n');
+            
+            if (periodSnapshot.size > 15) console.log(`... and ${periodSnapshot.size - 15} more`);
+            if (periodSnapshot.size === 0) transactionsContext = 'No transactions found for this time period.';
+        } else if (isTimeQuery) {
+            console.log('🕐 General time query - fetching recent transactions...');
+            const recentSnapshot = await collection.orderBy('date', 'desc').limit(200).get();
             console.log(`   ✅ Found ${recentSnapshot.size} recent transactions\n`);
             
             console.log('📋 Recent transactions:');
@@ -95,7 +143,7 @@ async function main() {
                 const dateStr = data.date?.toDate ? data.date.toDate().toISOString().split('T')[0] : 
                                (typeof data.date === 'string' ? new Date(data.date).toISOString().split('T')[0] : 'N/A');
                 const line = `Date: ${dateStr}, Amount: ${data.amount || 'N/A'}, Category: ${data.categoryId || 'N/A'}, Note: ${data.note || 'N/A'}`;
-                if (i < 10) console.log(line); // Only show first 10 in console
+                if (i < 10) console.log(line);
                 return line;
             }).join('\n');
             
