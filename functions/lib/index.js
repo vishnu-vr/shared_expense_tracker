@@ -77,12 +77,33 @@ exports.onTransactionCreated = (0, firestore_1.onDocumentCreated)("transactions/
 const TransactionQuerySchema = genkit_1.z.object({
     question: genkit_1.z.string(),
 });
-// Define the retriever manually to allow filtering by userId
-// Note: 'defineFirestoreRetriever' is often a custom wrapper or part of experimental plugins.
-// We will use ai.defineRetriever for maximum control and correctness.
+// Helper to format date for display
+function formatDate(dateValue) {
+    if (!dateValue)
+        return 'Unknown';
+    // Handle Firestore Timestamp
+    if (dateValue.toDate) {
+        return dateValue.toDate().toISOString().split('T')[0];
+    }
+    // Handle ISO string
+    if (typeof dateValue === 'string') {
+        return new Date(dateValue).toISOString().split('T')[0];
+    }
+    return String(dateValue);
+}
+// Fetch recent transactions for time-based queries
+async function getRecentTransactions(limit = 50) {
+    const firestore = (0, firestore_2.getFirestore)();
+    const snapshot = await firestore
+        .collection("transactions")
+        .orderBy("date", "desc")
+        .limit(limit)
+        .get();
+    return snapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+}
+// Define the retriever for semantic search
 const transactionRetriever = ai.defineRetriever({
     name: "transactionRetriever",
-    // No options needed for global search
 }, async (content) => {
     const embedding = await ai.embed({
         embedder: google_genai_1.vertexAI.embedder('text-embedding-004'),
@@ -90,11 +111,10 @@ const transactionRetriever = ai.defineRetriever({
     });
     const firestore = (0, firestore_2.getFirestore)();
     const collection = firestore.collection("transactions");
-    // Vector Search (Global)
-    // Note: You need to create a Vector Index in Firestore for this to work.
+    // Vector Search - increased limit for better coverage
     const vectorQuery = collection
         .findNearest("embedding", firestore_2.FieldValue.vector(embedding[0].embedding), {
-        limit: 5,
+        limit: 20,
         distanceMeasure: "COSINE",
     });
     const querySnapshot = await vectorQuery.get();
@@ -103,10 +123,7 @@ const transactionRetriever = ai.defineRetriever({
             const data = doc.data();
             return {
                 content: [
-                    { text: `Date: ${data.date}` },
-                    { text: `Amount: ${data.amount}` },
-                    { text: `Note: ${data.note}` },
-                    { text: `Category: ${data.ai_suggested_category || data.categoryId}` }, // Use AI category if available
+                    { text: `Date: ${formatDate(data.date)}, Amount: ${data.amount}, Category: ${data.categoryId}, Note: ${data.note || 'N/A'}` },
                 ],
                 metadata: { id: doc.id },
             };
@@ -119,26 +136,59 @@ const analyzeTransactionsFlow = ai.defineFlow({
     inputSchema: TransactionQuerySchema,
     outputSchema: genkit_1.z.string(),
 }, async ({ question }) => {
-    // Retrieve relevant transactions
-    const docs = await ai.retrieve({
-        retriever: transactionRetriever,
-        query: question,
-    });
-    // Generate answer
+    // Get current date for context
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentMonth = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    // Calculate last month
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthName = lastMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    // Detect if this is a time-based query
+    const timeKeywords = ['last month', 'this month', 'yesterday', 'today', 'last week', 'this week', 'recent', 'lately'];
+    const isTimeQuery = timeKeywords.some(kw => question.toLowerCase().includes(kw));
+    let transactionsContext = '';
+    if (isTimeQuery) {
+        // For time-based queries, get recent transactions sorted by date
+        const recentTxns = await getRecentTransactions(100);
+        transactionsContext = recentTxns
+            .map(t => `Date: ${formatDate(t.date)}, Amount: ${t.amount}, Category: ${t.categoryId}, Note: ${t.note || 'N/A'}`)
+            .join('\n');
+    }
+    else {
+        // For semantic queries, use vector search
+        const docs = await ai.retrieve({
+            retriever: transactionRetriever,
+            query: question,
+        });
+        transactionsContext = docs
+            .map((d) => d.content.map((p) => 'text' in p ? p.text : '').join(''))
+            .join('\n');
+    }
+    // Generate answer with improved prompt
     const { text } = await ai.generate({
         model: google_genai_1.vertexAI.model('gemini-2.0-flash'),
-        prompt: `
-        You are a helpful financial assistant.
-        Answer the user's question based ONLY on the following transactions.
-        
-        User Question: ${question}
-        
-        Transactions:
-        ${docs.map((d) => d.content.map((p) => 'text' in p ? p.text : '').join('\n')).join("\n\n")}
-        
-        If the information is not in the transactions, say so.
-        Provide a concise and helpful answer.
-      `,
+        prompt: `You are a helpful and friendly financial assistant analyzing personal expense data.
+
+CURRENT DATE: ${currentDate}
+CURRENT MONTH: ${currentMonth}
+LAST MONTH: ${lastMonthName}
+
+USER QUESTION: ${question}
+
+TRANSACTION DATA:
+${transactionsContext}
+
+INSTRUCTIONS:
+1. Use the current date to correctly interpret relative time references (e.g., "last month" = ${lastMonthName})
+2. Filter the transactions based on the time period mentioned in the question
+3. Calculate totals, averages, or breakdowns as needed
+4. If asked about spending by category, group and sum the amounts
+5. Format currency amounts nicely (e.g., ₹1,234.56)
+6. If no relevant transactions are found for the time period, say so clearly
+7. Be concise but informative
+8. If the question is vague, provide a helpful summary
+
+Provide your answer:`,
     });
     return text;
 });

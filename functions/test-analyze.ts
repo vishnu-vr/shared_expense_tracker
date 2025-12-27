@@ -64,37 +64,73 @@ async function main() {
         });
         console.log(`   ✅ Generated embedding with ${questionEmbedding[0].embedding.length} dimensions\n`);
         
-        // Step 3: Vector search
-        console.log('🔍 Performing vector search...');
+        // Get current date for context
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0];
+        const currentMonth = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthName = lastMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        
+        console.log(`📅 Current date: ${currentDate}`);
+        console.log(`📅 Current month: ${currentMonth}`);
+        console.log(`📅 Last month: ${lastMonthName}\n`);
+        
+        // Detect time-based query
+        const timeKeywords = ['last month', 'this month', 'yesterday', 'today', 'last week', 'this week', 'recent', 'lately'];
+        const isTimeQuery = timeKeywords.some(kw => question.toLowerCase().includes(kw));
+        
+        let transactionsContext = '';
         const collection = firestore.collection('transactions');
         
-        const vectorQuery = collection.findNearest(
-            'embedding',
-            FieldValue.vector(questionEmbedding[0].embedding),
-            {
-                limit: 5,
-                distanceMeasure: 'COSINE',
+        if (isTimeQuery) {
+            console.log('🕐 Time-based query detected - fetching recent transactions...');
+            const recentSnapshot = await collection.orderBy('date', 'desc').limit(100).get();
+            console.log(`   ✅ Found ${recentSnapshot.size} recent transactions\n`);
+            
+            console.log('📋 Recent transactions:');
+            console.log('─'.repeat(60));
+            
+            transactionsContext = recentSnapshot.docs.map((doc, i) => {
+                const data = doc.data();
+                const dateStr = data.date?.toDate ? data.date.toDate().toISOString().split('T')[0] : 
+                               (typeof data.date === 'string' ? new Date(data.date).toISOString().split('T')[0] : 'N/A');
+                const line = `Date: ${dateStr}, Amount: ${data.amount || 'N/A'}, Category: ${data.categoryId || 'N/A'}, Note: ${data.note || 'N/A'}`;
+                if (i < 10) console.log(line); // Only show first 10 in console
+                return line;
+            }).join('\n');
+            
+            if (recentSnapshot.size > 10) console.log(`... and ${recentSnapshot.size - 10} more`);
+        } else {
+            console.log('🔍 Semantic query - performing vector search...');
+            const vectorQuery = collection.findNearest(
+                'embedding',
+                FieldValue.vector(questionEmbedding[0].embedding),
+                {
+                    limit: 20,
+                    distanceMeasure: 'COSINE',
+                }
+            );
+            
+            const querySnapshot = await vectorQuery.get();
+            console.log(`   ✅ Found ${querySnapshot.size} relevant transactions\n`);
+            
+            if (querySnapshot.size === 0) {
+                console.log('⚠️  No transactions found with embeddings. Run backfill first.');
+                process.exit(1);
             }
-        );
-        
-        const querySnapshot = await vectorQuery.get();
-        console.log(`   ✅ Found ${querySnapshot.size} relevant transactions\n`);
-        
-        if (querySnapshot.size === 0) {
-            console.log('⚠️  No transactions found with embeddings. Run backfill first.');
-            process.exit(1);
+            
+            console.log('📋 Retrieved transactions:');
+            console.log('─'.repeat(60));
+            
+            transactionsContext = querySnapshot.docs.map((doc, i) => {
+                const data = doc.data();
+                const dateStr = data.date?.toDate ? data.date.toDate().toISOString().split('T')[0] : 
+                               (typeof data.date === 'string' ? new Date(data.date).toISOString().split('T')[0] : 'N/A');
+                const line = `Date: ${dateStr}, Amount: ${data.amount || 'N/A'}, Category: ${data.categoryId || 'N/A'}, Note: ${data.note || 'N/A'}`;
+                console.log(line);
+                return line;
+            }).join('\n');
         }
-        
-        // Step 4: Format transactions
-        console.log('📋 Retrieved transactions:');
-        console.log('─'.repeat(60));
-        
-        const transactionsContext = querySnapshot.docs.map((doc, i) => {
-            const data = doc.data();
-            const line = `${i + 1}. Date: ${data.date || 'N/A'}, Amount: ${data.amount || 'N/A'}, Note: ${data.note || 'N/A'}, Category: ${data.categoryId || 'N/A'}`;
-            console.log(line);
-            return line;
-        }).join('\n');
         
         console.log('─'.repeat(60));
         console.log('');
@@ -102,16 +138,28 @@ async function main() {
         // Step 5: Generate answer with Gemini
         console.log('🤖 Generating answer with Gemini...\n');
         
-        const prompt = `You are a helpful financial assistant.
-Answer the user's question based ONLY on the following transactions.
+        const prompt = `You are a helpful and friendly financial assistant analyzing personal expense data.
 
-User Question: ${question}
+CURRENT DATE: ${currentDate}
+CURRENT MONTH: ${currentMonth}
+LAST MONTH: ${lastMonthName}
 
-Transactions:
+USER QUESTION: ${question}
+
+TRANSACTION DATA:
 ${transactionsContext}
 
-If the information is not in the transactions, say so.
-Provide a concise and helpful answer.`;
+INSTRUCTIONS:
+1. Use the current date to correctly interpret relative time references (e.g., "last month" = ${lastMonthName})
+2. Filter the transactions based on the time period mentioned in the question
+3. Calculate totals, averages, or breakdowns as needed
+4. If asked about spending by category, group and sum the amounts
+5. Format currency amounts nicely (e.g., ₹1,234.56)
+6. If no relevant transactions are found for the time period, say so clearly
+7. Be concise but informative
+8. If the question is vague, provide a helpful summary
+
+Provide your answer:`;
 
         const response = await ai.generate({
             model: vertexAI.model('gemini-2.0-flash'),
